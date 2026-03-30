@@ -1,12 +1,12 @@
 {
-  "name": "Simple Flying V2",
+  "name": "Simple Flying",
   "version": "1.0.0",
   "manifest_version": 1,
   "author": "You",
-  "description": "Flying with silhouette + diagonal offset",
+  "description": "Flying system with silhouette and diagonal offset",
   "action": {
-    "title": "Flying V2",
-    "icon": "https://cdn-icons-png.flaticon.com/512/854/854878.png",
+    "title": "Simple Flying",
+    "icon": "/pics/icon.png",
     "popover": "/index.html"
   }
 }
