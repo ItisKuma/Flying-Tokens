@@ -1,0 +1,10 @@
+{
+  "name": "Simple Flying V2",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "author": "You",
+  "description": "Flying with silhouette + diagonal offset",
+  "action": {
+    "title": "Flying V2"
+  }
+}
