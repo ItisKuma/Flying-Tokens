@@ -6,7 +6,7 @@
   "description": "Flying with silhouette + diagonal offset",
   "action": {
     "title": "Flying V2",
-    "icon": "",
+    "icon": "https://cdn-icons-png.flaticon.com/512/854/854878.png",
     "url": "index.html"
   }
 }
