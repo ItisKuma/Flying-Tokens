@@ -7,6 +7,10 @@
   "action": {
     "title": "Flying V2",
     "icon": "https://cdn-icons-png.flaticon.com/512/854/854878.png",
-    "url": "index.html"
+    "popover": {
+      "url": "index.html",
+      "width": 300,
+      "height": 200
+    }
   }
 }
