@@ -5,6 +5,8 @@
   "author": "You",
   "description": "Flying with silhouette + diagonal offset",
   "action": {
-    "title": "Flying V2"
+    "title": "Flying V2",
+    "icon": "",
+    "url": "index.html"
   }
 }
