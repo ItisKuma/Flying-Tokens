@@ -1,3 +1,4 @@
+import OBR from "https://unpkg.com/@owlbear-rodeo/sdk?module";
 const ID = "simple-flying-v2"
 const Z_MIN = 5
 const Z_MAX = 60
