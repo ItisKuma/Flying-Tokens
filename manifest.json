@@ -8,5 +8,9 @@
     "title": "Simple Flying",
     "icon": "/pics/icon.png",
     "popover": "/index.html"
-  }
+  },
+  "permissions": [
+    "scene:read",
+    "scene:write"
+  ]
 }
