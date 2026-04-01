@@ -6,17 +6,12 @@
   "description": "Top down flying system",
   "action": {
     "title": "Simple Flying",
-    "icon": "/pics/icon.png",
-    "popover": "/index.html"
+    "icon": "pics/icon.png",
+    "popover": "index.html"
   },
   "permissions": [
     {
-      "name": "scene",
-      "access": "read"
-    },
-    {
-      "name": "scene",
-      "access": "write"
+      "scopes": ["scene:read", "scene:write"]
     }
   ]
 }
