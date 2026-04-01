@@ -1,15 +1,73 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <!-- Load main script as module -->
-  <script type="module" src="src/main.js"></script>
+  <title>Simple Flying</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 10px;
+      font-family: sans-serif;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
 
-<!-- Simple UI -->
-<button id="toggle">Toggle Flying</button>
-<input id="z" type="range" min="5" max="60" value="5" />
+<button id="toggleFlying">Toggle Flying</button>
+
+<script type="module">
+  import OBR from "https://unpkg.com/@owlbear-rodeo/sdk?module";
+
+  OBR.onReady(() => {
+    const button = document.getElementById("toggleFlying");
+
+    button.addEventListener("click", async () => {
+      console.log("Toggle clicked");
+
+      const selectedItems = await OBR.scene.items.getItems(i => i.selected);
+
+      if (selectedItems.length === 0) {
+        console.log("No token selected");
+        return;
+      }
+
+      await OBR.scene.items.updateItems(selectedItems, (items) => {
+        for (let item of items) {
+          const isFlying = item.metadata?.flying ?? false;
+
+          const newFlying = !isFlying;
+
+          // Gem state
+          item.metadata = {
+            ...item.metadata,
+            flying: newFlying
+          };
+
+          // Visuel feedback
+          item.opacity = newFlying ? 0.6 : 1;
+
+          // (valgfrit) label i navn
+          if (item.name) {
+            if (newFlying && !item.name.includes("🕊")) {
+              item.name = "🕊 " + item.name;
+            } else if (!newFlying) {
+              item.name = item.name.replace("🕊 ", "");
+            }
+          }
+        }
+      });
+
+      console.log("Flying toggled");
+    });
+  });
+</script>
 
 </body>
 </html>
