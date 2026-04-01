@@ -10,7 +10,13 @@
     "popover": "/index.html"
   },
   "permissions": [
-    "scene:read",
-    "scene:write"
+    {
+      "name": "scene",
+      "access": "read"
+    },
+    {
+      "name": "scene",
+      "access": "write"
+    }
   ]
 }
