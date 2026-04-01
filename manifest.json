@@ -9,9 +9,5 @@
     "icon": "pics/icon.png",
     "popover": "index.html"
   },
-  "permissions": [
-    {
-      "scopes": ["scene:read", "scene:write"]
-    }
-  ]
+  "permissions": []
 }
