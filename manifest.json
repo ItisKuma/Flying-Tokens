@@ -2,8 +2,6 @@
   "name": "Simple Flying",
   "version": "1.0.0",
   "manifest_version": 1,
-  "entry": "index.html",
-  "permissions": ["scene:read", "scene:write"]
   "author": "Kuma",
   "description": "Top down flying system",
   "action": {
