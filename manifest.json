@@ -2,8 +2,10 @@
   "name": "Simple Flying",
   "version": "1.0.0",
   "manifest_version": 1,
-  "author": "You",
-  "description": "Flying system with silhouette and diagonal offset",
+  "entry": "index.html",
+  "permissions": ["scene:read", "scene:write"]
+  "author": "Kuma",
+  "description": "Top down flying system",
   "action": {
     "title": "Simple Flying",
     "icon": "/pics/icon.png",
