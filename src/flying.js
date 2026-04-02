@@ -1,77 +1,52 @@
 import OBR from "https://unpkg.com/@owlbear-rodeo/sdk?module";
-import { normalize } from "./utils.js";
+import { createShadow, removeShadow, updateShadow } from "./shadow.js";
 
 const ID = "simple-flying";
 
-// Minimum højde (under dette flyver man ikke)
-const Z_MIN = 5;
-
-// Max højde (UI range)
-const Z_MAX = 60;
-
-
-//  Toggle flying state
-export function toggleFlying(token) {
-
-  let meta = token.metadata[ID] || {
+function getMeta(item) {
+  return item.metadata[ID] ?? {
     flying: false,
-    z: Z_MIN,
-    shadowId: null,
-
-    // Base position = hvor token står på jorden
-    base: { ...token.position }
+    z: 0,
+    shadowId: null
   };
-
-  // Skift true/false
-  meta.flying = !meta.flying;
-
-  return meta;
 }
 
+//  Toggle flying
+export async function toggleFlyingState(id) {
 
-//  Opdater hvordan token ser ud
-export async function updateVisual(token) {
+  await OBR.scene.items.updateItems([id], async items => {
 
-  const meta = token.metadata[ID];
-  if (!meta?.flying) return;
+    const item = items[0];
+    const meta = getMeta(item);
 
-  // Hent shadow
-  const [shadow] = await OBR.scene.items.getItems([meta.shadowId]);
-  if (!shadow) return;
+    meta.flying = !meta.flying;
 
-  // Konverter Z til 0 → 1
-  const t = normalize(meta.z, Z_MIN, Z_MAX);
+    if (meta.flying) {
+      meta.shadowId = await createShadow(item);
+    } else {
+      await removeShadow(meta.shadowId);
+      meta.shadowId = null;
+      meta.z = 0;
+    }
 
-  await OBR.scene.items.updateItems([token.id, shadow.id], items => {
-
-    const k = items.find(i => i.id === token.id); // K-token
-    const s = items.find(i => i.id === shadow.id); // Shadow
-
-    //  SHADOW
-    // Shadow bliver på jorden (base position)
-    s.position = { ...meta.base };
-
-    // Shadow bliver mindre jo højere man flyver
-    const sScale = Math.max(0.4, 1 - t * 0.5);
-    s.scale = { x: sScale, y: sScale };
-
-    // Shadow bliver mere gennemsigtig
-    s.opacity = 0.3 - t * 0.2;
-
-
-    // 🧍 TOKEN (det der flyver)
-    const offset = t * 50;
-
-    // Flyt diagonalt (illusion af højde)
-    k.position.x = meta.base.x - offset;
-    k.position.y = meta.base.y + offset;
-
-    // Gør token større jo højere det er
-    const kScale = 1 + t * 0.2;
-
-    k.scale = {
-      x: kScale,
-      y: kScale * 0.9 // lidt oval (perspektiv)
-    };
+    item.metadata[ID] = meta;
   });
+}
+
+//  Set Z
+export async function setZ(id, z) {
+
+  await OBR.scene.items.updateItems([id], items => {
+
+    const item = items[0];
+    const meta = getMeta(item);
+
+    if (!meta.flying) return;
+
+    meta.z = z;
+    item.metadata[ID] = meta;
+  });
+
+  // opdater shadow efter ændring
+  await updateShadow(id);
 }
