@@ -6,7 +6,7 @@ const ID = "simple-flying";
 export async function createShadow(token) {
 
   const shadow = {
-    id: crypto.randomUUID(),
+    id: Math.random(),
     type: "IMAGE",
     name: "Shadow",
     layer: "MAP",
