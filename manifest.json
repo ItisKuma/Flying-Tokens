@@ -6,7 +6,14 @@
   "description": "Top down flying system",
   "action": {
     "title": "Simple Flying",
+<<<<<<< HEAD
     "icon": "/pics/icon.png",
     "popover": "/index.html"
   }
 }
+=======
+    "icon": "pics/icon.png",
+    "popover": "index.html"
+  }
+}
+>>>>>>> 663484910b30287bb66b34542176094f2176fa07
