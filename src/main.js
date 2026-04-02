@@ -6,57 +6,64 @@ import { toggleFlying, updateVisual } from "./flying.js";
 
 const ID = "simple-flying";
 
-// Wait for Owlbear to be ready
+// Kører når Owlbear er klar
 OBR.onReady(() => {
 
-  // Start tracking selected token
+  // Starter listener der holder styr på valgt token
   initSelection();
 
-  // Toggle flying button
+  // 🔘 BUTTON: Toggle Flying
   document.getElementById("toggle").onclick = async () => {
 
+    // Hvis intet token er valgt → stop
     if (!selectedId) return;
 
+    // Hent token fra scenen
     const [token] = await OBR.scene.items.getItems([selectedId]);
     if (!token) return;
 
+    // Skift flying state
     let meta = toggleFlying(token);
 
     if (meta.flying) {
-      // Create shadow
+      // Opret shadow hvis vi starter flying
       meta.shadowId = await createShadow(token);
     } else {
-      // Remove shadow
+      // Fjern shadow hvis vi stopper flying
       await removeShadow(meta.shadowId);
       meta.shadowId = null;
     }
 
-    // Save metadata
+    // Gem metadata på token
     await OBR.scene.items.updateItems([token.id], items => {
       items[0].metadata[ID] = meta;
     });
 
+    // Opdater visuals (position + scale)
     updateVisual(token);
   };
 
-  // Height slider
+  // 🎚️ SLIDER: Z (højde)
   document.getElementById("z").oninput = async (e) => {
 
     if (!selectedId) return;
 
     const z = Number(e.target.value);
 
+    // Opdater Z i metadata
     await OBR.scene.items.updateItems([selectedId], items => {
 
       const t = items[0];
       const meta = t.metadata[ID];
 
+      // Hvis ikke flying → gør ingenting
       if (!meta?.flying) return;
 
       meta.z = z;
       t.metadata[ID] = meta;
     });
 
+    // Hent token igen og opdater visuals
     const [token] = await OBR.scene.items.getItems([selectedId]);
     updateVisual(token);
   };
