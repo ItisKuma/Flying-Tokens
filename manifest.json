@@ -1,0 +1,12 @@
+{
+  "name": "Simple Flying",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "author": "Kuma",
+  "description": "Top down flying system",
+  "action": {
+    "title": "Simple Flying",
+    "icon": "/pics/icon.png",
+    "popover": "/index.html"
+  }
+}
