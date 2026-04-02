@@ -3,6 +3,7 @@ import OBR from "https://unpkg.com/@owlbear-rodeo/sdk?module";
 import { initSelection, selectedId } from "./state.js";
 import { createShadow, removeShadow } from "./shadow.js";
 import { toggleFlying, updateVisual } from "./flying.js";
+import { updateFlyingList } from "./list.js";
 
 const ID = "simple-flying";
 
@@ -41,6 +42,7 @@ OBR.onReady(() => {
 
     // Opdater visuals (position + scale)
     updateVisual(token);
+    updateFlyingList();
   };
 
   // 🎚️ SLIDER: Z (højde)
@@ -66,5 +68,10 @@ OBR.onReady(() => {
     // Hent token igen og opdater visuals
     const [token] = await OBR.scene.items.getItems([selectedId]);
     updateVisual(token);
+    updateFlyingList();
   };
+  // 🔄 Opdater listen når scene ændrer sig
+  OBR.scene.items.onChange(() => {
+  updateFlyingList();
+});
 });
