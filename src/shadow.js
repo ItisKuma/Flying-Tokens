@@ -4,7 +4,7 @@ export function createShadow(item) {
   const width = item.shape?.width ?? item.width ?? 100;
   const height = item.shape?.height ?? item.height ?? 100;
 
-  return {
+  return OBR.scene.items.buildShape({
     id: crypto.randomUUID(),
 
     shape: {
@@ -20,10 +20,8 @@ export function createShadow(item) {
 
     rotation: item.rotation ?? 0,
 
-    fill: {
-      color: "#000000",
-      opacity: 0.5,
-    },
+    fillColor: "#000000",
+    fillOpacity: 0.5,
 
     layer: "MAP",
 
@@ -31,7 +29,7 @@ export function createShadow(item) {
       "simple-flying-shadow": true,
       attachedTo: item.id,
     },
-  };
+  });
 }
 
 export async function deleteShadow(id) {
