@@ -3,13 +3,12 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "./",
 
-  resolve: {
-    alias: {
-      events: false
-    }
+  build: {
+    outDir: "dist",
+    emptyOutDir: true,
   },
 
   optimizeDeps: {
-    exclude: ["@owlbear-rodeo/sdk"]
-  }
+    exclude: ["@owlbear-rodeo/sdk"],
+  },
 });
