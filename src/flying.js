@@ -1,47 +1,56 @@
-import OBR from "@owlbear-rodeo/sdk";
-import { createShadow, removeShadow, updateShadow } from "./shadow.js";
+import OBR from "https://unpkg.com/@owlbear-rodeo/sdk";
+import { createShadow, deleteShadow } from "./shadow.js";
 
-const ID = "simple-flying";
+const NS = "simple-flying";
 
-function getMeta(item) {
-  return item.metadata[ID] ?? {
-    flying: false,
-    z: 0,
-    shadowId: null
-  };
-}
+export async function toggleFlying() {
+  const selection = await OBR.player.getSelection();
+  if (!selection || selection.length === 0) return;
 
-export async function toggleFlyingState(id) {
-  await OBR.scene.items.updateItems([id], async items => {
+  const items = await OBR.scene.items.getItems(selection);
 
-    const item = items[0];
-    const meta = getMeta(item);
+  const shadowsToCreate = [];
 
-    meta.flying = !meta.flying;
+  for (const item of items) {
+    const data = item.metadata?.[NS];
 
-    if (meta.flying) {
-      meta.shadowId = await createShadow(item);
-    } else {
-      await removeShadow(meta.shadowId);
-      meta.shadowId = null;
-      meta.z = 0;
+    // enable flying
+    if (!data?.flying) {
+      const shadow = createShadow(item);
+      shadowsToCreate.push(shadow);
+
+      await OBR.scene.items.updateItems([item.id], (items) => {
+        for (const i of items) {
+          i.metadata = {
+            ...i.metadata,
+            [NS]: {
+              flying: true,
+              shadowId: shadow.id,
+            },
+          };
+        }
+      });
     }
 
-    item.metadata[ID] = meta;
-  });
-}
+    // disable flying
+    else {
+      const shadowId = data.shadowId;
 
-export async function setZ(id, z) {
-  await OBR.scene.items.updateItems([id], items => {
+      if (shadowId) {
+        await deleteShadow(shadowId);
+      }
 
-    const item = items[0];
-    const meta = getMeta(item);
+      await OBR.scene.items.updateItems([item.id], (items) => {
+        for (const i of items) {
+          if (i.metadata && i.metadata[NS]) {
+            delete i.metadata[NS];
+          }
+        }
+      });
+    }
+  }
 
-    if (!meta.flying) return;
-
-    meta.z = z;
-    item.metadata[ID] = meta;
-  });
-
-  await updateShadow(id);
+  if (shadowsToCreate.length > 0) {
+    await OBR.scene.items.addItems(shadowsToCreate);
+  }
 }
