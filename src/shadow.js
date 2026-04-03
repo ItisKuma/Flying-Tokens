@@ -1,4 +1,4 @@
-import OBR from "https://unpkg.com/@owlbear-rodeo/sdk@latest/dist/index.mjs";
+import OBR from "https://unpkg.com/@owlbear-rodeo/sdk@latest";
 
 export function createShadow(item) {
   return {
