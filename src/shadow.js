@@ -1,21 +1,24 @@
 import OBR from "@owlbear-rodeo/sdk";
 
 export function createShadow(item) {
+  const width = item.shape?.width ?? item.width ?? 100;
+  const height = item.shape?.height ?? item.height ?? 100;
+
   return {
     id: crypto.randomUUID(),
 
     shape: {
       type: "RECTANGLE",
-      width: item.shape.width,
-      height: item.shape.height,
+      width,
+      height,
     },
 
     position: {
-      x: item.position.x + 40,
-      y: item.position.y + 40,
+      x: (item.position?.x ?? 0) + 40,
+      y: (item.position?.y ?? 0) + 40,
     },
 
-    rotation: item.rotation,
+    rotation: item.rotation ?? 0,
 
     fill: {
       color: "#000000",

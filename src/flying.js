@@ -8,19 +8,27 @@ export async function toggleFlying() {
   if (!selection || selection.length === 0) return;
 
   const items = await OBR.scene.items.getItems(selection);
+  if (!items || items.length === 0) return;
 
   const shadowsToCreate = [];
 
   for (const item of items) {
+    if (!item) continue;
+
     const data = item.metadata?.[NS];
 
-    // enable flying
+    // ENABLE FLYING
     if (!data?.flying) {
       const shadow = createShadow(item);
+
+      if (!shadow) continue;
+
       shadowsToCreate.push(shadow);
 
       await OBR.scene.items.updateItems([item.id], (items) => {
         for (const i of items) {
+          if (!i) continue;
+
           i.metadata = {
             ...i.metadata,
             [NS]: {
@@ -32,7 +40,7 @@ export async function toggleFlying() {
       });
     }
 
-    // disable flying
+    // DISABLE FLYING
     else {
       const shadowId = data.shadowId;
 
@@ -42,14 +50,15 @@ export async function toggleFlying() {
 
       await OBR.scene.items.updateItems([item.id], (items) => {
         for (const i of items) {
-          if (i.metadata && i.metadata[NS]) {
-            delete i.metadata[NS];
-          }
+          if (!i || !i.metadata) continue;
+
+          delete i.metadata[NS];
         }
       });
     }
   }
 
+  // opret alle shadows samlet (samme pattern som emanation)
   if (shadowsToCreate.length > 0) {
     await OBR.scene.items.addItems(shadowsToCreate);
   }
