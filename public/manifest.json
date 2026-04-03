@@ -7,7 +7,7 @@
   "action": {
     "title": "Simple Flying",
     "icon": "/pics/icon.png",
-    "popover": "/"
+    "popover": "/",
     "height": 600,
     "width": 400
   }
