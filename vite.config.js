@@ -1,8 +1,15 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  base: "/",
-  build: {
-    assetsDir: "assets"
+  base: "./",
+
+  resolve: {
+    alias: {
+      events: false
+    }
+  },
+
+  optimizeDeps: {
+    exclude: ["@owlbear-rodeo/sdk"]
   }
 });
