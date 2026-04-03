@@ -1,4 +1,4 @@
-import OBR from "https://unpkg.com/@owlbear-rodeo/sdk";
+import OBR from "https://unpkg.com/@owlbear-rodeo/sdk@latest/dist/index.mjs";
 import { createShadow, deleteShadow } from "./shadow.js";
 
 const NS = "simple-flying";
