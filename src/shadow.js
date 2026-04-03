@@ -1,10 +1,10 @@
-import OBR from "@owlbear-rodeo/sdk";
+import OBR, { buildShape } from "@owlbear-rodeo/sdk";
 
 export function createShadow(item) {
   const width = item.shape?.width ?? item.width ?? 100;
   const height = item.shape?.height ?? item.height ?? 100;
 
-  return OBR.scene.items.buildShape({
+  return buildShape({
     id: crypto.randomUUID(),
 
     shape: {
