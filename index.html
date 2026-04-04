@@ -1,7 +1,360 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple Flying</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Segoe UI", sans-serif;
+        background: #171924;
+        color: #f3f4f8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 16px;
+        background:
+          radial-gradient(circle at top, rgba(111, 140, 255, 0.18), transparent 32%),
+          #171924;
+      }
+
+      main {
+        display: grid;
+        gap: 16px;
+      }
+
+      section {
+        padding: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+
+      h2 {
+        font-size: 14px;
+        margin-bottom: 10px;
+        color: #bfc7ff;
+      }
+
+      p {
+        color: #b5b9ca;
+        line-height: 1.4;
+      }
+
+      button,
+      input[type="range"] {
+        width: 100%;
+      }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font: inherit;
+        color: inherit;
+        background: #657cff;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #7890ff;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .selected-token__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+
+      .selected-token__name {
+        font-weight: 600;
+      }
+
+      .selected-token__value {
+        color: #ffd978;
+        font-weight: 700;
+      }
+
+      .selected-token__status {
+        margin-bottom: 10px;
+        font-size: 13px;
+      }
+
+      .flying-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      .flying-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.18);
+      }
+
+      .flying-row__info {
+        display: grid;
+        gap: 4px;
+      }
+
+      .flying-row__name {
+        font-weight: 600;
+      }
+
+      .flying-row__height {
+        color: #ffd978;
+        font-size: 13px;
+      }
+
+      .flying-row__controls {
+        display: flex;
+        gap: 8px;
+      }
+
+      .flying-row__controls button {
+        width: auto;
+        min-width: 52px;
+        padding-inline: 10px;
+        background: rgba(101, 124, 255, 0.2);
+        border: 1px solid rgba(148, 164, 255, 0.28);
+      }
+
+      .flying-row__controls button:hover {
+        background: rgba(101, 124, 255, 0.32);
+      }
+
+      .light-control {
+        display: grid;
+        gap: 10px;
+      }
+
+      .light-control h2 {
+        font-size: 12px;
+        margin-bottom: 0;
+      }
+
+      .light-control__hint {
+        font-size: 12px;
+      }
+
+      .light-control__pad {
+        position: relative;
+        width: 50%;
+        min-width: 120px;
+        max-width: 160px;
+        aspect-ratio: 1;
+        margin: 0 auto;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle at center, rgba(255,255,255,0.06), transparent 38%),
+          linear-gradient(180deg, rgba(255, 214, 102, 0.12), rgba(255,255,255,0.02));
+        border: 1px solid rgba(255,255,255,0.08);
+        touch-action: none;
+      }
+
+      .light-control__sun,
+      .light-control__center {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        transform: translate(-50%, -50%);
+      }
+
+      .light-control__sun {
+        left: 16%;
+        top: 16%;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background:
+          radial-gradient(circle at 35% 35%, #fff6d5 0 18%, #ffe18e 19% 52%, #ffc84f 53% 100%);
+        box-shadow:
+          0 0 0 4px rgba(255, 217, 120, 0.12),
+          0 0 16px rgba(255, 200, 79, 0.32);
+        cursor: grab;
+      }
+
+      .light-control__sun:active {
+        cursor: grabbing;
+      }
+
+      .light-control__center {
+        left: 50%;
+        top: 50%;
+        width: 30px;
+        height: 40px;
+        color: #d7defd;
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .switch {
+        position: relative;
+        width: 48px;
+        height: 28px;
+        flex: 0 0 auto;
+      }
+
+      .switch input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        margin: 0;
+      }
+
+      .switch__track {
+        position: absolute;
+        inset: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        transition: background 120ms ease;
+      }
+
+      .switch__thumb {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        background: #f3f4f8;
+        transition: transform 120ms ease;
+      }
+
+      .switch input:checked + .switch__track {
+        background: rgba(101, 124, 255, 0.9);
+      }
+
+      .switch input:checked + .switch__track .switch__thumb {
+        transform: translateX(20px);
+      }
+
+      .float-animation {
+        display: grid;
+        gap: 10px;
+      }
+
+      .float-animation__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .float-animation__value {
+        color: #ffd978;
+        font-weight: 700;
+        font-size: 13px;
+      }
+
+    </style>
+  </head>
   <body>
-    <button id="toggle-flying">Toggle Flying</button>
+    <main>
+      <section>
+        <h2>Selected Token</h2>
+        <div class="selected-token__header">
+          <span id="selected-token-name" class="selected-token__name">Select exactly one token</span>
+          <span id="z-value" class="selected-token__value">5 ft</span>
+        </div>
+        <p id="selected-token-status" class="selected-token__status">
+          Use one selected token to edit its flying height.
+        </p>
+        <input
+          id="z-slider"
+          type="range"
+          min="5"
+          max="150"
+          step="5"
+          value="5"
+          disabled
+        />
+      </section>
+
+      <section class="light-control">
+        <h2>Light</h2>
+        <p class="light-control__hint">Drag the sun. Farther away means bigger shadow offset.</p>
+        <div id="light-direction" class="light-control__pad" aria-label="Drag the sun to set light direction">
+          <div id="light-sun" class="light-control__sun" aria-hidden="true"></div>
+          <div class="light-control__center" aria-hidden="true">
+            <span id="light-center-icon"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="float-animation">
+        <div class="toggle-row">
+          <div>
+            <h2>Float Animation</h2>
+            <p>Animate visual height only. Metadata z stays unchanged.</p>
+          </div>
+          <label class="switch" aria-label="Toggle float animation">
+            <input id="float-animation-toggle" type="checkbox" />
+            <span class="switch__track">
+              <span class="switch__thumb"></span>
+            </span>
+          </label>
+        </div>
+        <div class="float-animation__header">
+          <span>Amplitude</span>
+          <span id="float-animation-amplitude-value" class="float-animation__value">5 ft</span>
+        </div>
+        <input
+          id="float-animation-amplitude"
+          type="range"
+          min="1"
+          max="10"
+          step="1"
+          value="5"
+        />
+      </section>
+
+      <section class="stack">
+        <h2>Flying Tokens</h2>
+        <p id="flying-empty">No flying tokens in this scene.</p>
+        <ul id="flying-list" class="flying-list"></ul>
+      </section>
+    </main>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

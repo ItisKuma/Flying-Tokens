@@ -4,6 +4,7 @@
   "manifest_version": 1,
   "author": "Kuma",
   "description": "Top down flying system",
+  "background_url": "/background.html",
   "action": {
     "title": "Simple Flying",
     "icon": "/icon.png",

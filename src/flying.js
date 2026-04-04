@@ -1,16 +1,92 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { createShadow, deleteShadow } from "./shadow.js";
 
-const NS = "simple-flying";
+export const NS = "simple-flying";
+export const MIN_Z_FEET = 5;
+export const MAX_Z_FEET = 150;
+export const Z_STEP_FEET = 5;
+export const DEFAULT_Z_FEET = 5;
+export const Z_INDEX_PER_FOOT = 1000000000000;
+export const SCALE_PER_5_FEET = 0.05;
 
-export async function toggleFlying() {
-  const selection = await OBR.player.getSelection();
-  if (!selection || selection.length === 0) return;
+export function clampZFeet(value) {
+  const numericValue = Number(value);
 
-  const items = await OBR.scene.items.getItems(selection);
+  if (!Number.isFinite(numericValue)) {
+    return DEFAULT_Z_FEET;
+  }
+
+  const snappedValue =
+    Math.round(numericValue / Z_STEP_FEET) * Z_STEP_FEET;
+
+  return Math.min(MAX_Z_FEET, Math.max(MIN_Z_FEET, snappedValue));
+}
+
+export function getFlyingData(item) {
+  return item?.metadata?.[NS];
+}
+
+export function isFlying(item) {
+  return Boolean(getFlyingData(item)?.flying);
+}
+
+export function getItemZFeet(item) {
+  if (!isFlying(item)) {
+    return 0;
+  }
+
+  return clampZFeet(getFlyingData(item)?.zFeet ?? DEFAULT_Z_FEET);
+}
+
+export function getBaseZIndex(item) {
+  if (!isFlying(item)) {
+    return Number(item?.zIndex ?? 0);
+  }
+
+  return Number(getFlyingData(item)?.baseZIndex ?? item?.zIndex ?? 0);
+}
+
+export function getFlyingZIndex(baseZIndex, zFeet) {
+  return Number(baseZIndex) + clampZFeet(zFeet) * Z_INDEX_PER_FOOT;
+}
+
+export function getBaseScale(item) {
+  if (!isFlying(item)) {
+    return item?.scale ?? { x: 1, y: 1 };
+  }
+
+  return getFlyingData(item)?.baseScale ?? item?.scale ?? { x: 1, y: 1 };
+}
+
+export function getFlyingScale(baseScale, zFeet) {
+  const steps = clampZFeet(zFeet) / Z_STEP_FEET;
+  const multiplier = 1 + steps * SCALE_PER_5_FEET;
+
+  return {
+    x: Number(baseScale?.x ?? 1) * multiplier,
+    y: Number(baseScale?.y ?? 1) * multiplier,
+  };
+}
+
+export function getVisualFlyingScale(baseScale, zFeet) {
+  const numericZFeet = Math.max(0, Number(zFeet) || 0);
+  const multiplier = 1 + (numericZFeet / Z_STEP_FEET) * SCALE_PER_5_FEET;
+
+  return {
+    x: Number(baseScale?.x ?? 1) * multiplier,
+    y: Number(baseScale?.y ?? 1) * multiplier,
+  };
+}
+
+export function getItemLabel(item) {
+  return item?.name?.trim() || item?.text?.plainText?.trim() || "Unnamed token";
+}
+
+export function getFlyingItems(items) {
+  return items.filter((item) => isFlying(item));
+}
+
+export async function toggleFlyingForItems(items) {
   if (!items || items.length === 0) return;
-
-  const shadowsToCreate = [];
 
   for (const item of items) {
     if (!item) continue;
@@ -19,47 +95,112 @@ export async function toggleFlying() {
 
     // ENABLE FLYING
     if (!data?.flying) {
-      const shadow = createShadow(item);
-
-      if (!shadow) continue;
-
-      shadowsToCreate.push(shadow);
-
       await OBR.scene.items.updateItems([item.id], (items) => {
         for (const i of items) {
           if (!i) continue;
+
+          const baseZIndex = Number(i.zIndex ?? 0);
+          const baseScale = i.scale ?? { x: 1, y: 1 };
 
           i.metadata = {
             ...i.metadata,
             [NS]: {
               flying: true,
-              shadowId: shadow.id,
+              zFeet: DEFAULT_Z_FEET,
+              baseZIndex,
+              baseScale,
             },
           };
+          i.zIndex = getFlyingZIndex(baseZIndex, DEFAULT_Z_FEET);
+          i.scale = getFlyingScale(baseScale, DEFAULT_Z_FEET);
+          i.disableAutoZIndex = true;
         }
       });
     }
 
     // DISABLE FLYING
     else {
-      const shadowId = data.shadowId;
-
-      if (shadowId) {
-        await deleteShadow(shadowId);
-      }
-
       await OBR.scene.items.updateItems([item.id], (items) => {
         for (const i of items) {
           if (!i || !i.metadata) continue;
 
+          const baseZIndex = Number(data.baseZIndex ?? i.zIndex ?? 0);
+          const baseScale = data.baseScale ?? { x: 1, y: 1 };
+          i.zIndex = baseZIndex;
+          i.scale = baseScale;
+          i.disableAutoZIndex = false;
           delete i.metadata[NS];
         }
       });
     }
   }
 
-  // opret alle shadows samlet (samme pattern som emanation)
-  if (shadowsToCreate.length > 0) {
-    await OBR.scene.items.addItems(shadowsToCreate);
+}
+
+export async function toggleFlying() {
+  const selection = await OBR.player.getSelection();
+  if (!selection || selection.length === 0) return;
+
+  const items = await OBR.scene.items.getItems(selection);
+  await toggleFlyingForItems(items);
+}
+
+export async function setFlyingHeight(itemId, zFeet) {
+  const nextZFeet = clampZFeet(zFeet);
+
+  await OBR.scene.items.updateItems([itemId], (items) => {
+    for (const item of items) {
+      if (!item || !isFlying(item)) continue;
+
+      const baseZIndex = getBaseZIndex(item);
+      const baseScale = getBaseScale(item);
+
+      item.metadata = {
+        ...item.metadata,
+        [NS]: {
+          ...getFlyingData(item),
+          flying: true,
+          zFeet: nextZFeet,
+          baseZIndex,
+          baseScale,
+        },
+      };
+      item.zIndex = getFlyingZIndex(baseZIndex, nextZFeet);
+      item.scale = getFlyingScale(baseScale, nextZFeet);
+      item.disableAutoZIndex = true;
+    }
+  });
+}
+
+export async function setItemZIndex(itemId, zIndex) {
+  const nextZIndex = Number(zIndex);
+
+  if (!Number.isFinite(nextZIndex)) {
+    return;
   }
+
+  await OBR.scene.items.updateItems([itemId], (items) => {
+    for (const item of items) {
+      if (!item) continue;
+
+      if (isFlying(item)) {
+        const zFeet = getItemZFeet(item);
+
+        item.metadata = {
+          ...item.metadata,
+          [NS]: {
+            ...getFlyingData(item),
+            baseZIndex: nextZIndex,
+          },
+        };
+        item.zIndex = getFlyingZIndex(nextZIndex, zFeet);
+        item.scale = getFlyingScale(getBaseScale(item), zFeet);
+        item.disableAutoZIndex = true;
+        continue;
+      }
+
+      item.zIndex = nextZIndex;
+      item.disableAutoZIndex = true;
+    }
+  });
 }
