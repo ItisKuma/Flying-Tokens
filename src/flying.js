@@ -8,6 +8,69 @@ export const DEFAULT_Z_FEET = 5;
 export const Z_INDEX_PER_FOOT = 1000000000000;
 export const SCALE_PER_5_FEET = 0.05;
 
+function cloneJson(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
+function getFlyingOverlayText(zFeet) {
+  return `Flying: ${clampZFeet(zFeet)} ft`;
+}
+
+function buildFlyingTextContent(currentText, zFeet) {
+  const baseText = cloneJson(currentText) ?? {
+    richText: [
+      {
+        type: "paragraph",
+        children: [{ text: "" }],
+      },
+    ],
+    plainText: "",
+    style: {
+      padding: 8,
+      fontFamily: "Roboto",
+      fontSize: 24,
+      fontWeight: 400,
+      textAlign: "CENTER",
+      textAlignVertical: "BOTTOM",
+      fillColor: "white",
+      fillOpacity: 1,
+      strokeColor: "white",
+      strokeOpacity: 1,
+      strokeWidth: 0,
+      lineHeight: 1.5,
+    },
+    type: "PLAIN",
+    width: "AUTO",
+    height: "AUTO",
+  };
+
+  const plainText = getFlyingOverlayText(zFeet);
+
+  return {
+    ...baseText,
+    plainText,
+    richText: [
+      {
+        type: "paragraph",
+        children: [{ text: plainText }],
+      },
+    ],
+    type: "PLAIN",
+    style: {
+      ...baseText.style,
+      textAlign: "CENTER",
+      textAlignVertical: "TOP",
+      fillColor: "#ffd978",
+      fillOpacity: 1,
+      strokeColor: "#0f1118",
+      strokeOpacity: 0.95,
+      strokeWidth: 3,
+      fontWeight: 700,
+      padding: 6,
+    },
+  };
+}
+
 export function clampZFeet(value) {
   const numericValue = Number(value);
 
@@ -109,11 +172,15 @@ export async function toggleFlyingForItems(items) {
               zFeet: DEFAULT_Z_FEET,
               baseZIndex,
               baseScale,
+              baseText: cloneJson(i.text),
+              baseTextItemType: i.textItemType ?? "LABEL",
             },
           };
           i.zIndex = getFlyingZIndex(baseZIndex, DEFAULT_Z_FEET);
           i.scale = getFlyingScale(baseScale, DEFAULT_Z_FEET);
           i.disableAutoZIndex = true;
+          i.text = buildFlyingTextContent(i.text, DEFAULT_Z_FEET);
+          i.textItemType = "LABEL";
         }
       });
     }
@@ -129,6 +196,8 @@ export async function toggleFlyingForItems(items) {
           i.zIndex = baseZIndex;
           i.scale = baseScale;
           i.disableAutoZIndex = false;
+          i.text = cloneJson(data.baseText) ?? i.text;
+          i.textItemType = data.baseTextItemType ?? i.textItemType ?? "LABEL";
           delete i.metadata[NS];
         }
       });
@@ -168,6 +237,8 @@ export async function setFlyingHeight(itemId, zFeet) {
       item.zIndex = getFlyingZIndex(baseZIndex, nextZFeet);
       item.scale = getFlyingScale(baseScale, nextZFeet);
       item.disableAutoZIndex = true;
+      item.text = buildFlyingTextContent(item.text, nextZFeet);
+      item.textItemType = "LABEL";
     }
   });
 }

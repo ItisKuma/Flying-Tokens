@@ -19,6 +19,7 @@ const FLOAT_ANIMATION_TICK_MS = 120;
 const state = {
   items: [],
   sceneReady: false,
+  lightDragActive: false,
 };
 
 let animationIntervalId = 0;
@@ -90,6 +91,10 @@ async function refreshItems() {
     throw error;
   }
 
+  if (state.lightDragActive) {
+    return;
+  }
+
   await syncLocalShadows(state.items);
 }
 
@@ -99,6 +104,11 @@ async function runAnimationTick() {
   }
 
   await syncAnimatedTokenScales();
+
+  if (state.lightDragActive) {
+    return;
+  }
+
   await syncLocalShadows(state.items);
 }
 
@@ -120,9 +130,14 @@ function startAnimationLoop() {
 
 OBR.onReady(() => {
   subscribeToRoomSettings((settings) => {
+    state.lightDragActive = Boolean(settings?.lightDragActive);
     applyRuntimeSettings(settings);
 
     if (!state.sceneReady) {
+      return;
+    }
+
+    if (state.lightDragActive) {
       return;
     }
 
@@ -134,6 +149,7 @@ OBR.onReady(() => {
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
+    if (state.lightDragActive) return;
     syncLocalShadows(state.items);
   });
 

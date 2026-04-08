@@ -4,6 +4,7 @@ import {
   DEFAULT_FLOAT_ANIMATION_AMPLITUDE,
   setFloatAnimationAmplitude,
   setFloatAnimationEnabled,
+  setFloatAnimationPaused,
 } from "./floatAnimation.js";
 import { setLightVector } from "./shadow.js";
 
@@ -13,6 +14,8 @@ const DEFAULT_SETTINGS = {
   lightVector: { x: -0.7, y: -0.7 },
   floatAnimationEnabled: false,
   floatAnimationAmplitude: DEFAULT_FLOAT_ANIMATION_AMPLITUDE,
+  floatAnimationPaused: false,
+  lightDragActive: false,
 };
 
 export function normalizeSettings(rawSettings) {
@@ -26,6 +29,12 @@ export function normalizeSettings(rawSettings) {
     ),
     floatAnimationAmplitude: Number(
       rawSettings?.floatAnimationAmplitude ?? DEFAULT_SETTINGS.floatAnimationAmplitude,
+    ),
+    floatAnimationPaused: Boolean(
+      rawSettings?.floatAnimationPaused ?? DEFAULT_SETTINGS.floatAnimationPaused,
+    ),
+    lightDragActive: Boolean(
+      rawSettings?.lightDragActive ?? DEFAULT_SETTINGS.lightDragActive,
     ),
   };
 }
@@ -62,5 +71,6 @@ export function applyRuntimeSettings(settings) {
   setLightVector(normalizedSettings.lightVector);
   setFloatAnimationEnabled(normalizedSettings.floatAnimationEnabled);
   setFloatAnimationAmplitude(normalizedSettings.floatAnimationAmplitude);
+  setFloatAnimationPaused(normalizedSettings.floatAnimationPaused);
   return normalizedSettings;
 }

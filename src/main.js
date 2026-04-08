@@ -14,6 +14,7 @@ import {
   getFloatAnimationAmplitude,
   getVisualZFeet,
   isFloatAnimationEnabled,
+  setFloatAnimationPaused,
 } from "./floatAnimation.js";
 import { clearLocalShadows, getLightVector, syncLocalShadows } from "./shadow.js";
 import {
@@ -29,7 +30,20 @@ const state = {
   sceneReady: false,
   isAdjustingZSlider: false,
   pendingZSliderValue: DEFAULT_Z_FEET,
+  isAdjustingLight: false,
+  pendingLightVector: null,
 };
+
+function getEffectiveSettings(settings) {
+  if (!state.isAdjustingLight || !state.pendingLightVector) {
+    return settings;
+  }
+
+  return {
+    ...settings,
+    lightVector: state.pendingLightVector,
+  };
+}
 
 function setStatusMessage(message) {
   const selectedTokenStatus = document.getElementById("selected-token-status");
@@ -162,12 +176,15 @@ function renderLightDirectionControl() {
   const centerIcon = document.getElementById("light-center-icon");
   if (!sun) return;
 
-  const vector = getLightVector();
+  const vector =
+    state.isAdjustingLight && state.pendingLightVector
+      ? state.pendingLightVector
+      : getLightVector();
   const normalizedDistance = Math.min(1, Math.hypot(vector.x, vector.y) / 5);
   const directionLength = Math.hypot(vector.x, vector.y);
   const directionX = directionLength > 0 ? vector.x / directionLength : 0;
   const directionY = directionLength > 0 ? vector.y / directionLength : 0;
-  const travelPercent = 12 + normalizedDistance * 38;
+  const travelPercent = normalizedDistance * 44;
 
   sun.style.left = `${50 + directionX * travelPercent}%`;
   sun.style.top = `${50 + directionY * travelPercent}%`;
@@ -279,7 +296,7 @@ OBR.onReady(() => {
   const list = document.getElementById("flying-list");
 
   subscribeToRoomSettings((settings) => {
-    applyRuntimeSettings(settings);
+    applyRuntimeSettings(getEffectiveSettings(settings));
 
     if (state.sceneReady) {
       syncLocalShadows(state.items).then(render);
@@ -362,21 +379,22 @@ OBR.onReady(() => {
 
   if (lightDirection && lightSun) {
     let isDraggingLight = false;
-    let dragOffsetX = 0;
-    let dragOffsetY = 0;
 
-    const updateLightDirection = async (clientX, clientY) => {
+    const getDraggedLightVector = (clientX, clientY) => {
       const padRect = lightDirection.getBoundingClientRect();
       const centerX = padRect.left + padRect.width / 2;
       const centerY = padRect.top + padRect.height / 2;
       const radius = Math.min(padRect.width, padRect.height) * 0.44;
-      const adjustedX = clientX - dragOffsetX;
-      const adjustedY = clientY - dragOffsetY;
-      const deltaX = ((adjustedX - centerX) / radius) * 5;
-      const deltaY = ((adjustedY - centerY) / radius) * 5;
+      const deltaX = ((clientX - centerX) / radius) * 5;
+      const deltaY = ((clientY - centerY) / radius) * 5;
 
-      await updateRoomSettings({
-        lightVector: { x: deltaX, y: deltaY },
+      return { x: deltaX, y: deltaY };
+    };
+
+    const previewLightDirection = async (clientX, clientY) => {
+      state.pendingLightVector = getDraggedLightVector(clientX, clientY);
+      applyRuntimeSettings({
+        lightVector: state.pendingLightVector,
       });
 
       if (state.sceneReady) {
@@ -387,27 +405,54 @@ OBR.onReady(() => {
     };
 
     lightSun.addEventListener("pointerdown", async (event) => {
-      const sunRect = lightSun.getBoundingClientRect();
-      const sunCenterX = sunRect.left + sunRect.width / 2;
-      const sunCenterY = sunRect.top + sunRect.height / 2;
       isDraggingLight = true;
-      dragOffsetX = event.clientX - sunCenterX;
-      dragOffsetY = event.clientY - sunCenterY;
+      state.isAdjustingLight = true;
       lightSun.setPointerCapture(event.pointerId);
-      await updateLightDirection(event.clientX, event.clientY);
+      await previewLightDirection(event.clientX, event.clientY);
+      setFloatAnimationPaused(true);
+      await updateRoomSettings({
+        floatAnimationPaused: true,
+        lightDragActive: true,
+      });
     });
 
     lightSun.addEventListener("pointermove", async (event) => {
       if (!isDraggingLight) return;
-      await updateLightDirection(event.clientX, event.clientY);
+      await previewLightDirection(event.clientX, event.clientY);
     });
 
-    lightSun.addEventListener("pointerup", () => {
+    lightSun.addEventListener("pointerup", async () => {
       isDraggingLight = false;
+      state.isAdjustingLight = false;
+      setFloatAnimationPaused(false);
+      const committedLightVector = state.pendingLightVector;
+      state.pendingLightVector = null;
+      await updateRoomSettings({
+        floatAnimationPaused: false,
+        lightDragActive: false,
+      });
+      if (committedLightVector) {
+        await updateRoomSettings({
+          lightVector: committedLightVector,
+        });
+      }
     });
 
-    lightSun.addEventListener("pointercancel", () => {
+    lightSun.addEventListener("pointercancel", async () => {
       isDraggingLight = false;
+      state.isAdjustingLight = false;
+      setFloatAnimationPaused(false);
+      state.pendingLightVector = null;
+      await updateRoomSettings({
+        floatAnimationPaused: false,
+        lightDragActive: false,
+      });
+      const settings = await getRoomSettings();
+      applyRuntimeSettings(getEffectiveSettings(settings));
+      if (state.sceneReady) {
+        await syncLocalShadows(state.items);
+      }
+      render();
     });
   }
 
