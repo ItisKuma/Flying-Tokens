@@ -7,8 +7,8 @@ const FLOAT_EFFECT_ID_PREFIX = `${NS}/float-effect/`;
 
 const FLOAT_EFFECT_SKSL = `
 uniform shader scene;
-uniform mat3 modelView;
 uniform vec2 size;
+uniform vec2 position;
 uniform float time;
 uniform float amplitude;
 uniform float phase;
@@ -22,8 +22,8 @@ half4 main(float2 coord) {
   vec2 p = (coord - center) / safeCenter;
   float mask = 1.0 - smoothstep(0.78, 1.0, length(p));
 
-  vec2 baseUv = (vec3(coord, 1.0) * modelView).xy;
-  vec2 scaledUv = (vec3(scaledCoord, 1.0) * modelView).xy;
+  vec2 baseUv = position + coord;
+  vec2 scaledUv = position + scaledCoord;
   half4 baseColor = scene.eval(baseUv);
   half4 scaledColor = scene.eval(scaledUv);
 
