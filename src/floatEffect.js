@@ -6,9 +6,7 @@ export const LOCAL_FLOAT_EFFECT_NS = `${NS}-local-float`;
 const FLOAT_EFFECT_ID_PREFIX = `${NS}/float-effect/`;
 
 const FLOAT_EFFECT_SKSL = `
-uniform shader scene;
 uniform vec2 size;
-uniform vec2 position;
 uniform float time;
 uniform float amplitude;
 uniform float phase;
@@ -16,18 +14,16 @@ uniform float phase;
 half4 main(float2 coord) {
   vec2 center = size * 0.5;
   vec2 safeCenter = max(center, vec2(1.0));
-  float pulse = 1.0 + amplitude * sin(time * 2.4 + phase);
-
-  vec2 scaledCoord = center + (coord - center) / pulse;
+  float pulse = sin(time * 2.4 + phase) * amplitude;
+  float radius = 0.74 + pulse;
   vec2 p = (coord - center) / safeCenter;
-  float mask = 1.0 - smoothstep(0.78, 1.0, length(p));
+  float dist = length(p);
 
-  vec2 baseUv = position + coord;
-  vec2 scaledUv = position + scaledCoord;
-  half4 baseColor = scene.eval(baseUv);
-  half4 scaledColor = scene.eval(scaledUv);
+  float outerGlow = 1.0 - smoothstep(radius, radius + 0.14, dist);
+  float innerCut = 1.0 - smoothstep(max(0.0, radius - 0.12), radius - 0.02, dist);
+  float ring = clamp(outerGlow - innerCut, 0.0, 1.0);
 
-  return mix(baseColor, scaledColor, half(mask));
+  return half4(1.0, 0.92, 0.62, ring * 0.16);
 }
 `;
 
@@ -37,7 +33,7 @@ function getFloatEffectId(itemId) {
 
 function getPulseAmplitude() {
   const amplitudeFeet = getFloatAnimationAmplitude();
-  return 0.008 + amplitudeFeet * 0.004;
+  return 0.01 + amplitudeFeet * 0.006;
 }
 
 function buildLocalFloatEffect(item) {
