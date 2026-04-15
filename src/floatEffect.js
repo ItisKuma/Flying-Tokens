@@ -15,14 +15,14 @@ half4 main(float2 coord) {
   vec2 center = size * 0.5;
   vec2 safeCenter = max(center, vec2(1.0));
   float pulse = sin(time * 2.4 + phase) * amplitude;
-  float radius = 0.74 + pulse;
+  float radius = 0.68 + pulse;
   vec2 p = (coord - center) / safeCenter;
   float dist = length(p);
 
-  float outerGlow = 1.0 - smoothstep(radius, radius + 0.14, dist);
-  float innerCut = 1.0 - smoothstep(max(0.0, radius - 0.12), radius - 0.02, dist);
+  float outerGlow = 1.0 - smoothstep(radius, radius + 0.2, dist);
+  float innerCut = 1.0 - smoothstep(max(0.0, radius - 0.18), radius - 0.04, dist);
   float ring = clamp(outerGlow - innerCut, 0.0, 1.0);
-  float alpha = ring * 0.16;
+  float alpha = ring * 0.28;
 
   return half4(alpha * 1.0, alpha * 0.92, alpha * 0.62, alpha);
 }
@@ -34,7 +34,7 @@ function getFloatEffectId(itemId) {
 
 function getPulseAmplitude() {
   const amplitudeFeet = getFloatAnimationAmplitude();
-  return 0.01 + amplitudeFeet * 0.006;
+  return 0.025 + amplitudeFeet * 0.012;
 }
 
 function getEffectSize(bounds) {
@@ -42,8 +42,8 @@ function getEffectSize(bounds) {
   const height = Number(bounds?.height ?? 100);
 
   return {
-    width: width * 1.14,
-    height: height * 1.14,
+    width: width * 1.24,
+    height: height * 1.24,
   };
 }
 
