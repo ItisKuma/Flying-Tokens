@@ -28,6 +28,7 @@ const state = {
   sceneReady: false,
   isAdjustingLight: false,
   pendingLightVector: null,
+  interactionPauseCount: 0,
 };
 
 function getEffectiveSettings(settings) {
@@ -39,6 +40,34 @@ function getEffectiveSettings(settings) {
     ...settings,
     lightVector: state.pendingLightVector,
   };
+}
+
+async function beginInteractionPause(extraSettings = {}) {
+  state.interactionPauseCount += 1;
+
+  if (state.interactionPauseCount > 1) {
+    return;
+  }
+
+  setFloatAnimationPaused(true);
+  await updateRoomSettings({
+    floatAnimationPaused: true,
+    ...extraSettings,
+  });
+}
+
+async function endInteractionPause(extraSettings = {}) {
+  state.interactionPauseCount = Math.max(0, state.interactionPauseCount - 1);
+
+  if (state.interactionPauseCount > 0) {
+    return;
+  }
+
+  setFloatAnimationPaused(false);
+  await updateRoomSettings({
+    floatAnimationPaused: false,
+    ...extraSettings,
+  });
 }
 
 function renderFlyingList() {
@@ -255,11 +284,20 @@ OBR.onReady(() => {
 
       const delta = button.dataset.action === "increase-z" ? Z_STEP_FEET : -Z_STEP_FEET;
       try {
+        await beginInteractionPause();
         await setFlyingHeight(item.id, getItemZFeet(item) + delta);
         await refreshItems();
       } catch (error) {
         await refreshItems();
+      } finally {
+        await endInteractionPause();
       }
+    });
+
+    list.addEventListener("pointerdown", async (event) => {
+      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
+      if (!slider) return;
+      await beginInteractionPause();
     });
 
     list.addEventListener("input", (event) => {
@@ -281,6 +319,7 @@ OBR.onReady(() => {
 
       if (!item || !isFlying(item)) {
         await refreshItems();
+        await endInteractionPause();
         return;
       }
 
@@ -289,7 +328,15 @@ OBR.onReady(() => {
         await refreshItems();
       } catch (error) {
         await refreshItems();
+      } finally {
+        await endInteractionPause();
       }
+    });
+
+    list.addEventListener("pointercancel", async (event) => {
+      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
+      if (!slider) return;
+      await endInteractionPause();
     });
   }
 
@@ -325,9 +372,7 @@ OBR.onReady(() => {
       state.isAdjustingLight = true;
       lightSun.setPointerCapture(event.pointerId);
       await previewLightDirection(event.clientX, event.clientY);
-      setFloatAnimationPaused(true);
-      await updateRoomSettings({
-        floatAnimationPaused: true,
+      await beginInteractionPause({
         lightDragActive: true,
       });
     });
@@ -340,11 +385,9 @@ OBR.onReady(() => {
     lightSun.addEventListener("pointerup", async () => {
       isDraggingLight = false;
       state.isAdjustingLight = false;
-      setFloatAnimationPaused(false);
       const committedLightVector = state.pendingLightVector;
       state.pendingLightVector = null;
-      await updateRoomSettings({
-        floatAnimationPaused: false,
+      await endInteractionPause({
         lightDragActive: false,
       });
       if (committedLightVector) {
@@ -357,10 +400,8 @@ OBR.onReady(() => {
     lightSun.addEventListener("pointercancel", async () => {
       isDraggingLight = false;
       state.isAdjustingLight = false;
-      setFloatAnimationPaused(false);
       state.pendingLightVector = null;
-      await updateRoomSettings({
-        floatAnimationPaused: false,
+      await endInteractionPause({
         lightDragActive: false,
       });
       const settings = await getRoomSettings();
@@ -383,6 +424,10 @@ OBR.onReady(() => {
   }
 
   if (floatAnimationAmplitude) {
+    floatAnimationAmplitude.addEventListener("pointerdown", async () => {
+      await beginInteractionPause();
+    });
+
     floatAnimationAmplitude.addEventListener("input", (event) => {
       applyRuntimeSettings({
         floatAnimationAmplitude: event.target.value,
@@ -396,6 +441,11 @@ OBR.onReady(() => {
       });
       render();
       await applyFloatAnimationSettings();
+      await endInteractionPause();
+    });
+
+    floatAnimationAmplitude.addEventListener("pointercancel", async () => {
+      await endInteractionPause();
     });
   }
 
