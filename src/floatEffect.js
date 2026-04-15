@@ -22,8 +22,9 @@ half4 main(float2 coord) {
   float outerGlow = 1.0 - smoothstep(radius, radius + 0.14, dist);
   float innerCut = 1.0 - smoothstep(max(0.0, radius - 0.12), radius - 0.02, dist);
   float ring = clamp(outerGlow - innerCut, 0.0, 1.0);
+  float alpha = ring * 0.16;
 
-  return half4(1.0, 0.92, 0.62, ring * 0.16);
+  return half4(alpha * 1.0, alpha * 0.92, alpha * 0.62, alpha);
 }
 `;
 
@@ -36,13 +37,28 @@ function getPulseAmplitude() {
   return 0.01 + amplitudeFeet * 0.006;
 }
 
-function buildLocalFloatEffect(item) {
+function getEffectSize(bounds) {
+  const width = Number(bounds?.width ?? 100);
+  const height = Number(bounds?.height ?? 100);
+
+  return {
+    width: width * 1.14,
+    height: height * 1.14,
+  };
+}
+
+function buildLocalFloatEffect(item, bounds) {
+  const size = getEffectSize(bounds);
+
   return buildEffect()
     .id(getFloatEffectId(item.id))
     .name("Float Pulse")
     .effectType("ATTACHMENT")
+    .width(size.width)
+    .height(size.height)
     .attachedTo(item.id)
     .layer("POST_PROCESS")
+    .blendMode("SCREEN")
     .locked(true)
     .disableHit(true)
     .sksl(FLOAT_EFFECT_SKSL)
@@ -98,9 +114,19 @@ export async function syncLocalFloatEffects(items) {
 
   const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
   const itemsToAdd = [];
+  const boundsById = new Map();
 
   for (const item of flyingItems) {
-    const effect = buildLocalFloatEffect(item);
+    try {
+      const bounds = await OBR.scene.items.getItemBounds([item.id]);
+      boundsById.set(item.id, bounds);
+    } catch {
+      boundsById.set(item.id, null);
+    }
+  }
+
+  for (const item of flyingItems) {
+    const effect = buildLocalFloatEffect(item, boundsById.get(item.id));
     const existingEffect = localItemsById.get(effect.id);
 
     if (!existingEffect || existingEffect.type !== effect.type) {
@@ -118,6 +144,8 @@ export async function syncLocalFloatEffects(items) {
         localItem.visible = effect.visible;
         localItem.disableHit = effect.disableHit;
         localItem.metadata = effect.metadata;
+        localItem.width = effect.width;
+        localItem.height = effect.height;
         localItem.sksl = effect.sksl;
         localItem.uniforms = effect.uniforms;
         localItem.effectType = effect.effectType;
