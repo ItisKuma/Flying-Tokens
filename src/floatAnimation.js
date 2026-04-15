@@ -8,9 +8,8 @@ const FLOAT_ANIMATION_CYCLE_MS = 3200;
 
 let floatAnimationEnabled = false;
 let floatAnimationAmplitude = DEFAULT_FLOAT_ANIMATION_AMPLITUDE;
-let floatAnimationPaused = false;
 
-function getTokenPhaseOffset(item) {
+export function getTokenPhaseOffset(item) {
   const id = String(item?.id ?? "");
   let hash = 0;
 
@@ -27,10 +26,6 @@ export function isFloatAnimationEnabled() {
 
 export function setFloatAnimationEnabled(enabled) {
   floatAnimationEnabled = Boolean(enabled);
-}
-
-export function setFloatAnimationPaused(paused) {
-  floatAnimationPaused = Boolean(paused);
 }
 
 export function getFloatAnimationAmplitude() {
@@ -52,7 +47,7 @@ export function setFloatAnimationAmplitude(amplitude) {
 }
 
 export function getFloatAnimationOffsetFeet(item, now = performance.now()) {
-  if (!floatAnimationEnabled || floatAnimationPaused) {
+  if (!floatAnimationEnabled) {
     return 0;
   }
 

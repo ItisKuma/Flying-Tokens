@@ -1,17 +1,7 @@
 import OBR from "@owlbear-rodeo/sdk";
-import {
-  hasAnimationLeadership,
-  startAnimationLeadership,
-  stopAnimationLeadership,
-} from "./animationLeader.js";
-import {
-  getBaseScale,
-  getFlyingItems,
-  getItemZFeet,
-  getVisualFlyingScale,
-} from "./flying.js";
-import { getVisualZFeet, isFloatAnimationEnabled } from "./floatAnimation.js";
+import { isFloatAnimationEnabled } from "./floatAnimation.js";
 import { setupContextMenu } from "./contextMenu.js";
+import { clearLocalFloatEffects, syncLocalFloatEffects } from "./floatEffect.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeSettings,
@@ -25,64 +15,9 @@ const state = {
   items: [],
   sceneReady: false,
   lightDragActive: false,
-  role: "PLAYER",
 };
 
 let animationIntervalId = 0;
-let animationSyncInFlight = false;
-
-async function syncAnimatedTokenScales() {
-  if (
-    !state.sceneReady ||
-    animationSyncInFlight ||
-    !hasAnimationLeadership() ||
-    state.role !== "GM"
-  ) {
-    return;
-  }
-
-  const flyingItems = getFlyingItems(state.items);
-  if (flyingItems.length === 0) {
-    return;
-  }
-
-  const scaleById = new Map(
-    flyingItems.map((item) => {
-      const zFeet = isFloatAnimationEnabled() ? getVisualZFeet(item) : getItemZFeet(item);
-      return [item.id, getVisualFlyingScale(getBaseScale(item), zFeet)];
-    }),
-  );
-
-  animationSyncInFlight = true;
-
-  try {
-    await OBR.scene.items.updateItems([...scaleById.keys()], (items) => {
-      for (const item of items) {
-        if (!item) continue;
-
-        const nextScale = scaleById.get(item.id);
-        if (!nextScale) continue;
-
-        const currentScaleX = Number(item.scale?.x ?? 1);
-        const currentScaleY = Number(item.scale?.y ?? 1);
-        const deltaX = Math.abs(currentScaleX - nextScale.x);
-        const deltaY = Math.abs(currentScaleY - nextScale.y);
-
-        if (deltaX < 0.001 && deltaY < 0.001) {
-          continue;
-        }
-
-        item.scale = nextScale;
-      }
-    });
-  } catch (error) {
-    if (error?.error?.name !== "RateLimitHit") {
-      console.error("Simple Flying background animation error", error);
-    }
-  } finally {
-    animationSyncInFlight = false;
-  }
-}
 
 async function refreshItems() {
   if (!state.sceneReady) {
@@ -106,20 +41,20 @@ async function refreshItems() {
     return;
   }
 
+  await syncLocalFloatEffects(state.items);
   await syncLocalShadows(state.items);
 }
 
 async function runAnimationTick() {
-  if (!state.sceneReady || !isFloatAnimationEnabled() || !hasAnimationLeadership()) {
+  if (!state.sceneReady || !isFloatAnimationEnabled()) {
     return;
   }
-
-  await syncAnimatedTokenScales();
 
   if (state.lightDragActive) {
     return;
   }
 
+  await syncLocalFloatEffects(state.items);
   await syncLocalShadows(state.items);
 }
 
@@ -140,16 +75,6 @@ function startAnimationLoop() {
 }
 
 OBR.onReady(() => {
-  startAnimationLeadership();
-
-  OBR.player.getRole().then((role) => {
-    state.role = role;
-  });
-
-  OBR.player.onChange((player) => {
-    state.role = player?.role ?? "PLAYER";
-  });
-
   subscribeToRoomSettings((settings) => {
     state.lightDragActive = Boolean(settings?.lightDragActive);
     applyRuntimeSettings(settings);
@@ -162,6 +87,7 @@ OBR.onReady(() => {
       return;
     }
 
+    syncLocalFloatEffects(state.items);
     syncLocalShadows(state.items);
   });
 
@@ -171,6 +97,7 @@ OBR.onReady(() => {
     if (!state.sceneReady) return;
     state.items = items;
     if (state.lightDragActive) return;
+    syncLocalFloatEffects(state.items);
     syncLocalShadows(state.items);
   });
 
@@ -180,11 +107,11 @@ OBR.onReady(() => {
     if (!ready) {
       state.items = [];
       stopAnimationLoop();
+      clearLocalFloatEffects();
       clearLocalShadows();
       return;
     }
 
-    startAnimationLeadership();
     const settings = await getRoomSettings();
     applyRuntimeSettings(settings);
     await refreshItems();

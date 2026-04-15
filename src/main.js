@@ -1,20 +1,14 @@
 import OBR from "@owlbear-rodeo/sdk";
 import {
   Z_STEP_FEET,
-  getBaseScale,
   getFlyingItems,
   getItemLabel,
   getItemZFeet,
-  getVisualFlyingScale,
   isFlying,
   setFlyingHeight,
 } from "./flying.js";
-import {
-  getFloatAnimationAmplitude,
-  getVisualZFeet,
-  isFloatAnimationEnabled,
-  setFloatAnimationPaused,
-} from "./floatAnimation.js";
+import { getFloatAnimationAmplitude, isFloatAnimationEnabled } from "./floatAnimation.js";
+import { clearLocalFloatEffects, syncLocalFloatEffects } from "./floatEffect.js";
 import { clearLocalShadows, getLightVector, syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeSettings,
@@ -28,11 +22,6 @@ const state = {
   sceneReady: false,
   isAdjustingLight: false,
   pendingLightVector: null,
-  interactionPauseCount: 0,
-  hoveredZSliderItemId: null,
-  activeZSliderItemId: null,
-  amplitudeSliderHovered: false,
-  amplitudeSliderActive: false,
 };
 
 function getEffectiveSettings(settings) {
@@ -44,34 +33,6 @@ function getEffectiveSettings(settings) {
     ...settings,
     lightVector: state.pendingLightVector,
   };
-}
-
-async function beginInteractionPause(extraSettings = {}) {
-  state.interactionPauseCount += 1;
-
-  if (state.interactionPauseCount > 1) {
-    return;
-  }
-
-  setFloatAnimationPaused(true);
-  await updateRoomSettings({
-    floatAnimationPaused: true,
-    ...extraSettings,
-  });
-}
-
-async function endInteractionPause(extraSettings = {}) {
-  state.interactionPauseCount = Math.max(0, state.interactionPauseCount - 1);
-
-  if (state.interactionPauseCount > 0) {
-    return;
-  }
-
-  setFloatAnimationPaused(false);
-  await updateRoomSettings({
-    floatAnimationPaused: false,
-    ...extraSettings,
-  });
 }
 
 function renderFlyingList() {
@@ -200,41 +161,6 @@ function render() {
   renderFloatAnimationControls();
 }
 
-async function syncAnimatedTokenScales() {
-  if (!state.sceneReady) return;
-
-  const flyingItems = getFlyingItems(state.items);
-  if (flyingItems.length === 0) return;
-
-  const scaleById = new Map(
-    flyingItems.map((item) => {
-      const zFeet = isFloatAnimationEnabled() ? getVisualZFeet(item) : getItemZFeet(item);
-      return [item.id, getVisualFlyingScale(getBaseScale(item), zFeet)];
-    }),
-  );
-
-  try {
-    await OBR.scene.items.updateItems([...scaleById.keys()], (items) => {
-      for (const item of items) {
-        if (!item) continue;
-
-        const nextScale = scaleById.get(item.id);
-        if (!nextScale) continue;
-        item.scale = nextScale;
-      }
-    });
-  } catch (error) {
-    if (error?.error?.name !== "RateLimitHit") {
-      console.error("Simple Flying float animation error", error);
-    }
-  }
-}
-
-async function applyFloatAnimationSettings() {
-  await syncAnimatedTokenScales();
-  await refreshItems();
-}
-
 async function refreshItems() {
   if (!state.sceneReady) {
     state.items = [];
@@ -255,6 +181,7 @@ async function refreshItems() {
     throw error;
   }
 
+  await syncLocalFloatEffects(state.items);
   await syncLocalShadows(state.items);
   render();
 }
@@ -270,7 +197,10 @@ OBR.onReady(() => {
     applyRuntimeSettings(getEffectiveSettings(settings));
 
     if (state.sceneReady) {
-      syncLocalShadows(state.items).then(render);
+      Promise.all([
+        syncLocalFloatEffects(state.items),
+        syncLocalShadows(state.items),
+      ]).then(render);
       return;
     }
 
@@ -288,50 +218,8 @@ OBR.onReady(() => {
       if (!item || !isFlying(item)) return;
 
       const delta = button.dataset.action === "increase-z" ? Z_STEP_FEET : -Z_STEP_FEET;
-      try {
-        await beginInteractionPause();
-        await setFlyingHeight(item.id, getItemZFeet(item) + delta);
-        await refreshItems();
-      } catch (error) {
-        await refreshItems();
-      } finally {
-        await endInteractionPause();
-      }
-    });
-
-    list.addEventListener("pointerenter", async (event) => {
-      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
-      if (!slider) return;
-      state.hoveredZSliderItemId = slider.dataset.itemId;
-      await beginInteractionPause();
-    }, true);
-
-    list.addEventListener("pointerleave", async (event) => {
-      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
-      if (!slider) return;
-      if (state.hoveredZSliderItemId === slider.dataset.itemId) {
-        state.hoveredZSliderItemId = null;
-      }
-      if (state.activeZSliderItemId === slider.dataset.itemId) {
-        return;
-      }
-      await endInteractionPause();
-    }, true);
-
-    list.addEventListener("pointerdown", (event) => {
-      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
-      if (!slider) return;
-      state.activeZSliderItemId = slider.dataset.itemId;
-    });
-
-    list.addEventListener("pointerup", async (event) => {
-      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
-      if (!slider) return;
-      state.activeZSliderItemId = null;
-      if (state.hoveredZSliderItemId === slider.dataset.itemId) {
-        return;
-      }
-      await endInteractionPause();
+      await setFlyingHeight(item.id, getItemZFeet(item) + delta);
+      await refreshItems();
     });
 
     list.addEventListener("input", (event) => {
@@ -353,31 +241,11 @@ OBR.onReady(() => {
 
       if (!item || !isFlying(item)) {
         await refreshItems();
-        state.activeZSliderItemId = null;
-        await endInteractionPause();
         return;
       }
 
-      try {
-        await setFlyingHeight(item.id, slider.value);
-        await refreshItems();
-      } catch (error) {
-        await refreshItems();
-      } finally {
-        state.activeZSliderItemId = null;
-        if (!state.hoveredZSliderItemId || state.hoveredZSliderItemId !== slider.dataset.itemId) {
-          await endInteractionPause();
-        }
-      }
-    });
-
-    list.addEventListener("pointercancel", async (event) => {
-      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
-      if (!slider) return;
-      state.activeZSliderItemId = null;
-      if (!state.hoveredZSliderItemId || state.hoveredZSliderItemId !== slider.dataset.itemId) {
-        await endInteractionPause();
-      }
+      await setFlyingHeight(item.id, slider.value);
+      await refreshItems();
     });
   }
 
@@ -413,9 +281,7 @@ OBR.onReady(() => {
       state.isAdjustingLight = true;
       lightSun.setPointerCapture(event.pointerId);
       await previewLightDirection(event.clientX, event.clientY);
-      await beginInteractionPause({
-        lightDragActive: true,
-      });
+      await updateRoomSettings({ lightDragActive: true });
     });
 
     lightSun.addEventListener("pointermove", async (event) => {
@@ -428,9 +294,7 @@ OBR.onReady(() => {
       state.isAdjustingLight = false;
       const committedLightVector = state.pendingLightVector;
       state.pendingLightVector = null;
-      await endInteractionPause({
-        lightDragActive: false,
-      });
+      await updateRoomSettings({ lightDragActive: false });
       if (committedLightVector) {
         await updateRoomSettings({
           lightVector: committedLightVector,
@@ -442,9 +306,7 @@ OBR.onReady(() => {
       isDraggingLight = false;
       state.isAdjustingLight = false;
       state.pendingLightVector = null;
-      await endInteractionPause({
-        lightDragActive: false,
-      });
+      await updateRoomSettings({ lightDragActive: false });
       const settings = await getRoomSettings();
       applyRuntimeSettings(getEffectiveSettings(settings));
       if (state.sceneReady) {
@@ -459,30 +321,11 @@ OBR.onReady(() => {
       await updateRoomSettings({
         floatAnimationEnabled: event.target.checked,
       });
-      render();
-      await applyFloatAnimationSettings();
+      await refreshItems();
     });
   }
 
   if (floatAnimationAmplitude) {
-    floatAnimationAmplitude.addEventListener("pointerenter", async () => {
-      state.amplitudeSliderHovered = true;
-      await beginInteractionPause();
-    });
-
-    floatAnimationAmplitude.addEventListener("pointerleave", async () => {
-      state.amplitudeSliderHovered = false;
-      if (state.amplitudeSliderActive) {
-        return;
-      }
-      await endInteractionPause();
-    });
-
-    floatAnimationAmplitude.addEventListener("pointerdown", async () => {
-      state.amplitudeSliderActive = true;
-      await beginInteractionPause();
-    });
-
     floatAnimationAmplitude.addEventListener("input", (event) => {
       applyRuntimeSettings({
         floatAnimationAmplitude: event.target.value,
@@ -494,33 +337,17 @@ OBR.onReady(() => {
       await updateRoomSettings({
         floatAnimationAmplitude: event.target.value,
       });
-      render();
-      await applyFloatAnimationSettings();
-      state.amplitudeSliderActive = false;
-      if (!state.amplitudeSliderHovered) {
-        await endInteractionPause();
-      }
-    });
-
-    floatAnimationAmplitude.addEventListener("pointercancel", async () => {
-      state.amplitudeSliderActive = false;
-      if (!state.amplitudeSliderHovered) {
-        await endInteractionPause();
-      }
-    });
-
-    floatAnimationAmplitude.addEventListener("pointerup", async () => {
-      state.amplitudeSliderActive = false;
-      if (!state.amplitudeSliderHovered) {
-        await endInteractionPause();
-      }
+      await refreshItems();
     });
   }
 
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
-    syncLocalShadows(state.items).then(render);
+    Promise.all([
+      syncLocalFloatEffects(state.items),
+      syncLocalShadows(state.items),
+    ]).then(render);
   });
 
   OBR.scene.onReadyChange(async (ready) => {
@@ -528,6 +355,7 @@ OBR.onReady(() => {
 
     if (!ready) {
       state.items = [];
+      clearLocalFloatEffects();
       clearLocalShadows();
       render();
       return;

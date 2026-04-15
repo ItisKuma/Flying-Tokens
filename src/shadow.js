@@ -102,7 +102,7 @@ function getShadowOffset(item) {
 function getTokenSize(item, bounds) {
   const width = Number(bounds?.width ?? item?.image?.width ?? item?.shape?.width ?? item?.width ?? 100);
   const height = Number(bounds?.height ?? item?.image?.height ?? item?.shape?.height ?? item?.height ?? 100);
-  const zFeet = getVisualZFeet(item);
+  const zFeet = getItemZFeet(item);
   const flyingTokenScaleMultiplier = 1 + (zFeet / Z_STEP_FEET) * SCALE_PER_5_FEET;
   const baseWidth = width / flyingTokenScaleMultiplier;
   const baseHeight = height / flyingTokenScaleMultiplier;
