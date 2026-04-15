@@ -87,28 +87,6 @@
         gap: 10px;
       }
 
-      .selected-token__header {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 12px;
-        margin-bottom: 8px;
-      }
-
-      .selected-token__name {
-        font-weight: 600;
-      }
-
-      .selected-token__value {
-        color: #ffd978;
-        font-weight: 700;
-      }
-
-      .selected-token__status {
-        margin-bottom: 10px;
-        font-size: 13px;
-      }
-
       .flying-list {
         list-style: none;
         padding: 0;
@@ -132,6 +110,13 @@
         gap: 4px;
       }
 
+      .flying-row__top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
       .flying-row__name {
         font-weight: 600;
       }
@@ -139,6 +124,15 @@
       .flying-row__height {
         color: #ffd978;
         font-size: 13px;
+        font-weight: 700;
+      }
+
+      .flying-row__slider {
+        grid-column: 1 / -1;
+      }
+
+      .flying-row__slider input[type="range"] {
+        width: 100%;
       }
 
       .flying-row__controls {
@@ -293,26 +287,6 @@
   </head>
   <body>
     <main>
-      <section>
-        <h2>Selected Token</h2>
-        <div class="selected-token__header">
-          <span id="selected-token-name" class="selected-token__name">Select exactly one token</span>
-          <span id="z-value" class="selected-token__value">5 ft</span>
-        </div>
-        <p id="selected-token-status" class="selected-token__status">
-          Use one selected token to edit its flying height.
-        </p>
-        <input
-          id="z-slider"
-          type="range"
-          min="5"
-          max="150"
-          step="5"
-          value="5"
-          disabled
-        />
-      </section>
-
       <section class="light-control">
         <h2>Light</h2>
         <p class="light-control__hint">Drag the sun. Farther away means bigger shadow offset.</p>

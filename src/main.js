@@ -1,6 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
 import {
-  DEFAULT_Z_FEET,
   Z_STEP_FEET,
   getBaseScale,
   getFlyingItems,
@@ -26,10 +25,7 @@ import {
 
 const state = {
   items: [],
-  selection: [],
   sceneReady: false,
-  isAdjustingZSlider: false,
-  pendingZSliderValue: DEFAULT_Z_FEET,
   isAdjustingLight: false,
   pendingLightVector: null,
 };
@@ -43,75 +39,6 @@ function getEffectiveSettings(settings) {
     ...settings,
     lightVector: state.pendingLightVector,
   };
-}
-
-function setStatusMessage(message) {
-  const selectedTokenStatus = document.getElementById("selected-token-status");
-  if (!selectedTokenStatus) return;
-  selectedTokenStatus.textContent = message;
-}
-
-function getSelectionIds() {
-  return Array.isArray(state.selection) ? state.selection : [];
-}
-
-function getSingleSelectedItem() {
-  const selectedItems = state.items.filter((item) =>
-    getSelectionIds().includes(item.id),
-  );
-
-  return selectedItems.length === 1 ? selectedItems[0] : null;
-}
-
-function renderSelectedTokenControls() {
-  const selectedTokenName = document.getElementById("selected-token-name");
-  const selectedTokenStatus = document.getElementById("selected-token-status");
-  const zSlider = document.getElementById("z-slider");
-  const zValue = document.getElementById("z-value");
-
-  if (!selectedTokenName || !selectedTokenStatus || !zSlider || !zValue) return;
-
-  if (!state.sceneReady) {
-    selectedTokenName.textContent = "No scene loaded";
-    setStatusMessage("Open a scene in Owlbear to manage flying tokens.");
-    zSlider.disabled = true;
-    zSlider.value = String(state.pendingZSliderValue);
-    zValue.textContent = `${DEFAULT_Z_FEET} ft`;
-    return;
-  }
-
-  const selectedItems = state.items.filter((item) =>
-    getSelectionIds().includes(item.id),
-  );
-
-  if (selectedItems.length !== 1) {
-    selectedTokenName.textContent = "Select exactly one token";
-    setStatusMessage("Use one selected token to edit its flying height.");
-    zSlider.disabled = true;
-    zSlider.value = String(state.pendingZSliderValue);
-    zValue.textContent = `${DEFAULT_Z_FEET} ft`;
-    return;
-  }
-
-  const [selectedItem] = selectedItems;
-  const selectedItemFlying = isFlying(selectedItem);
-  const itemZFeet = getItemZFeet(selectedItem);
-
-  selectedTokenName.textContent = getItemLabel(selectedItem);
-  setStatusMessage(
-    selectedItemFlying
-      ? "Flying token selected"
-      : "Token is not flying yet",
-  );
-  zSlider.disabled = !selectedItemFlying;
-
-  const displayedZValue =
-    state.isAdjustingZSlider && selectedItemFlying
-      ? state.pendingZSliderValue
-      : itemZFeet;
-
-  zSlider.value = String(displayedZValue);
-  zValue.textContent = `${displayedZValue} ft`;
 }
 
 function renderFlyingList() {
@@ -140,6 +67,9 @@ function renderFlyingList() {
     const info = document.createElement("div");
     info.className = "flying-row__info";
 
+    const top = document.createElement("div");
+    top.className = "flying-row__top";
+
     const name = document.createElement("span");
     name.className = "flying-row__name";
     name.textContent = getItemLabel(item);
@@ -148,7 +78,22 @@ function renderFlyingList() {
     height.className = "flying-row__height";
     height.textContent = `${getItemZFeet(item)} ft`;
 
-    info.append(name, height);
+    top.append(name, height);
+    info.append(top);
+
+    const sliderWrap = document.createElement("div");
+    sliderWrap.className = "flying-row__slider";
+
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = "5";
+    slider.max = "150";
+    slider.step = "5";
+    slider.value = String(getItemZFeet(item));
+    slider.dataset.action = "set-z";
+    slider.dataset.itemId = item.id;
+
+    sliderWrap.append(slider);
 
     const controls = document.createElement("div");
     controls.className = "flying-row__controls";
@@ -166,7 +111,7 @@ function renderFlyingList() {
     upButton.dataset.itemId = item.id;
 
     controls.append(downButton, upButton);
-    row.append(info, controls);
+    row.append(info, controls, sliderWrap);
     list.append(row);
   }
 }
@@ -216,7 +161,6 @@ function renderFloatAnimationControls() {
 }
 
 function render() {
-  renderSelectedTokenControls();
   renderFlyingList();
   renderLightDirectionControl();
   renderFloatAnimationControls();
@@ -281,14 +225,7 @@ async function refreshItems() {
   render();
 }
 
-async function updateSelection(selection = null) {
-  const nextSelection = selection ?? (await OBR.player.getSelection());
-  state.selection = Array.isArray(nextSelection) ? nextSelection : [];
-  render();
-}
-
 OBR.onReady(() => {
-  const zSlider = document.getElementById("z-slider");
   const lightDirection = document.getElementById("light-direction");
   const lightSun = document.getElementById("light-sun");
   const floatAnimationToggle = document.getElementById("float-animation-toggle");
@@ -306,51 +243,6 @@ OBR.onReady(() => {
     render();
   });
 
-  if (zSlider) {
-    zSlider.addEventListener("pointerdown", () => {
-      state.isAdjustingZSlider = true;
-    });
-
-    zSlider.addEventListener("input", (event) => {
-      state.isAdjustingZSlider = true;
-      state.pendingZSliderValue = Number(event.target.value) || DEFAULT_Z_FEET;
-      const zValue = document.getElementById("z-value");
-      if (!zValue) return;
-      zValue.textContent = `${event.target.value} ft`;
-    });
-
-    zSlider.addEventListener("change", async (event) => {
-      const selectedItems = state.items.filter((item) =>
-        getSelectionIds().includes(item.id),
-      );
-
-      if (selectedItems.length !== 1 || !isFlying(selectedItems[0])) {
-        state.isAdjustingZSlider = false;
-        return;
-      }
-
-      try {
-        await setFlyingHeight(selectedItems[0].id, event.target.value);
-        state.pendingZSliderValue = Number(event.target.value) || DEFAULT_Z_FEET;
-        await refreshItems();
-      } catch (error) {
-        const message =
-          error?.error?.name === "RateLimitHit"
-            ? "Too many updates too quickly. Wait a moment and try again."
-            : "Could not update flying height.";
-
-        setStatusMessage(message);
-        await refreshItems();
-      } finally {
-        state.isAdjustingZSlider = false;
-      }
-    });
-
-    zSlider.addEventListener("pointercancel", () => {
-      state.isAdjustingZSlider = false;
-    });
-  }
-
   if (list) {
     list.addEventListener("click", async (event) => {
       const button = event.target.closest("button[data-action][data-item-id]");
@@ -366,12 +258,36 @@ OBR.onReady(() => {
         await setFlyingHeight(item.id, getItemZFeet(item) + delta);
         await refreshItems();
       } catch (error) {
-        const message =
-          error?.error?.name === "RateLimitHit"
-            ? "Too many updates too quickly. Wait a moment and try again."
-            : "Could not update flying height.";
+        await refreshItems();
+      }
+    });
 
-        setStatusMessage(message);
+    list.addEventListener("input", (event) => {
+      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
+      if (!slider) return;
+
+      const row = slider.closest(".flying-row");
+      const height = row?.querySelector(".flying-row__height");
+      if (!height) return;
+      height.textContent = `${slider.value} ft`;
+    });
+
+    list.addEventListener("change", async (event) => {
+      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
+      if (!slider) return;
+
+      const itemId = slider.dataset.itemId;
+      const item = state.items.find((candidate) => candidate.id === itemId);
+
+      if (!item || !isFlying(item)) {
+        await refreshItems();
+        return;
+      }
+
+      try {
+        await setFlyingHeight(item.id, slider.value);
+        await refreshItems();
+      } catch (error) {
         await refreshItems();
       }
     });
@@ -500,12 +416,6 @@ OBR.onReady(() => {
     }
 
     await refreshItems();
-    await updateSelection();
-  });
-
-  OBR.player.onChange((player) => {
-    state.selection = Array.isArray(player?.selection) ? player.selection : [];
-    render();
   });
 
   OBR.scene.isReady().then(async (ready) => {
@@ -517,6 +427,5 @@ OBR.onReady(() => {
     if (!ready) return;
 
     await refreshItems();
-    await updateSelection();
   });
 });
