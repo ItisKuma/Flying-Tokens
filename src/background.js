@@ -1,5 +1,10 @@
 import OBR from "@owlbear-rodeo/sdk";
 import {
+  hasAnimationLeadership,
+  startAnimationLeadership,
+  stopAnimationLeadership,
+} from "./animationLeader.js";
+import {
   getBaseScale,
   getFlyingItems,
   getItemZFeet,
@@ -26,7 +31,7 @@ let animationIntervalId = 0;
 let animationSyncInFlight = false;
 
 async function syncAnimatedTokenScales() {
-  if (!state.sceneReady || animationSyncInFlight) {
+  if (!state.sceneReady || animationSyncInFlight || !hasAnimationLeadership()) {
     return;
   }
 
@@ -99,7 +104,7 @@ async function refreshItems() {
 }
 
 async function runAnimationTick() {
-  if (!state.sceneReady || !isFloatAnimationEnabled()) {
+  if (!state.sceneReady || !isFloatAnimationEnabled() || !hasAnimationLeadership()) {
     return;
   }
 
@@ -129,6 +134,8 @@ function startAnimationLoop() {
 }
 
 OBR.onReady(() => {
+  startAnimationLeadership();
+
   subscribeToRoomSettings((settings) => {
     state.lightDragActive = Boolean(settings?.lightDragActive);
     applyRuntimeSettings(settings);
@@ -163,6 +170,7 @@ OBR.onReady(() => {
       return;
     }
 
+    startAnimationLeadership();
     const settings = await getRoomSettings();
     applyRuntimeSettings(settings);
     await refreshItems();
