@@ -131,7 +131,7 @@
         grid-column: 1 / -1;
       }
 
-      .flying-row__slider input[type="range"] {
+      .ui-slider {
         appearance: none;
         width: 100%;
         height: 6px;
@@ -141,14 +141,14 @@
         transition: background 120ms ease, box-shadow 120ms ease;
       }
 
-      .flying-row__slider input[type="range"]:hover,
-      .flying-row__slider input[type="range"]:focus-visible,
-      .flying-row__slider input[type="range"]:active {
+      .ui-slider:hover,
+      .ui-slider:focus-visible,
+      .ui-slider:active {
         background: rgba(255, 217, 120, 0.26);
         box-shadow: 0 0 0 1px rgba(255, 217, 120, 0.24);
       }
 
-      .flying-row__slider input[type="range"]::-webkit-slider-thumb {
+      .ui-slider::-webkit-slider-thumb {
         appearance: none;
         width: 16px;
         height: 16px;
@@ -160,7 +160,7 @@
         cursor: ew-resize;
       }
 
-      .flying-row__slider input[type="range"]::-moz-range-thumb {
+      .ui-slider::-moz-range-thumb {
         width: 16px;
         height: 16px;
         border-radius: 999px;
@@ -171,17 +171,17 @@
         cursor: ew-resize;
       }
 
-      .flying-row__slider input[type="range"]:hover::-webkit-slider-thumb,
-      .flying-row__slider input[type="range"]:focus-visible::-webkit-slider-thumb,
-      .flying-row__slider input[type="range"]:active::-webkit-slider-thumb {
+      .ui-slider:hover::-webkit-slider-thumb,
+      .ui-slider:focus-visible::-webkit-slider-thumb,
+      .ui-slider:active::-webkit-slider-thumb {
         transform: scale(1.12);
         background: #ffd978;
         box-shadow: 0 0 0 6px rgba(255, 217, 120, 0.14);
       }
 
-      .flying-row__slider input[type="range"]:hover::-moz-range-thumb,
-      .flying-row__slider input[type="range"]:focus-visible::-moz-range-thumb,
-      .flying-row__slider input[type="range"]:active::-moz-range-thumb {
+      .ui-slider:hover::-moz-range-thumb,
+      .ui-slider:focus-visible::-moz-range-thumb,
+      .ui-slider:active::-moz-range-thumb {
         transform: scale(1.12);
         background: #ffd978;
         box-shadow: 0 0 0 6px rgba(255, 217, 120, 0.14);
@@ -369,6 +369,7 @@
         </div>
         <input
           id="float-animation-amplitude"
+          class="ui-slider"
           type="range"
           min="1"
           max="10"

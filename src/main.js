@@ -31,6 +31,8 @@ const state = {
   interactionPauseCount: 0,
   hoveredZSliderItemId: null,
   activeZSliderItemId: null,
+  amplitudeSliderHovered: false,
+  amplitudeSliderActive: false,
 };
 
 function getEffectiveSettings(settings) {
@@ -116,8 +118,8 @@ function renderFlyingList() {
     sliderWrap.className = "flying-row__slider";
 
     const slider = document.createElement("input");
+    slider.className = "ui-slider";
     slider.type = "range";
-    slider.className = "z-slider";
     slider.min = "5";
     slider.max = "150";
     slider.step = "5";
@@ -463,7 +465,21 @@ OBR.onReady(() => {
   }
 
   if (floatAnimationAmplitude) {
+    floatAnimationAmplitude.addEventListener("pointerenter", async () => {
+      state.amplitudeSliderHovered = true;
+      await beginInteractionPause();
+    });
+
+    floatAnimationAmplitude.addEventListener("pointerleave", async () => {
+      state.amplitudeSliderHovered = false;
+      if (state.amplitudeSliderActive) {
+        return;
+      }
+      await endInteractionPause();
+    });
+
     floatAnimationAmplitude.addEventListener("pointerdown", async () => {
+      state.amplitudeSliderActive = true;
       await beginInteractionPause();
     });
 
@@ -480,11 +496,24 @@ OBR.onReady(() => {
       });
       render();
       await applyFloatAnimationSettings();
-      await endInteractionPause();
+      state.amplitudeSliderActive = false;
+      if (!state.amplitudeSliderHovered) {
+        await endInteractionPause();
+      }
     });
 
     floatAnimationAmplitude.addEventListener("pointercancel", async () => {
-      await endInteractionPause();
+      state.amplitudeSliderActive = false;
+      if (!state.amplitudeSliderHovered) {
+        await endInteractionPause();
+      }
+    });
+
+    floatAnimationAmplitude.addEventListener("pointerup", async () => {
+      state.amplitudeSliderActive = false;
+      if (!state.amplitudeSliderHovered) {
+        await endInteractionPause();
+      }
     });
   }
 
