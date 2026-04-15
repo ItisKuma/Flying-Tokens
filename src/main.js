@@ -29,6 +29,8 @@ const state = {
   isAdjustingLight: false,
   pendingLightVector: null,
   interactionPauseCount: 0,
+  hoveredZSliderItemId: null,
+  activeZSliderItemId: null,
 };
 
 function getEffectiveSettings(settings) {
@@ -115,6 +117,7 @@ function renderFlyingList() {
 
     const slider = document.createElement("input");
     slider.type = "range";
+    slider.className = "z-slider";
     slider.min = "5";
     slider.max = "150";
     slider.step = "5";
@@ -294,10 +297,39 @@ OBR.onReady(() => {
       }
     });
 
-    list.addEventListener("pointerdown", async (event) => {
+    list.addEventListener("pointerenter", async (event) => {
       const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
       if (!slider) return;
+      state.hoveredZSliderItemId = slider.dataset.itemId;
       await beginInteractionPause();
+    }, true);
+
+    list.addEventListener("pointerleave", async (event) => {
+      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
+      if (!slider) return;
+      if (state.hoveredZSliderItemId === slider.dataset.itemId) {
+        state.hoveredZSliderItemId = null;
+      }
+      if (state.activeZSliderItemId === slider.dataset.itemId) {
+        return;
+      }
+      await endInteractionPause();
+    }, true);
+
+    list.addEventListener("pointerdown", (event) => {
+      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
+      if (!slider) return;
+      state.activeZSliderItemId = slider.dataset.itemId;
+    });
+
+    list.addEventListener("pointerup", async (event) => {
+      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
+      if (!slider) return;
+      state.activeZSliderItemId = null;
+      if (state.hoveredZSliderItemId === slider.dataset.itemId) {
+        return;
+      }
+      await endInteractionPause();
     });
 
     list.addEventListener("input", (event) => {
@@ -319,6 +351,7 @@ OBR.onReady(() => {
 
       if (!item || !isFlying(item)) {
         await refreshItems();
+        state.activeZSliderItemId = null;
         await endInteractionPause();
         return;
       }
@@ -329,14 +362,20 @@ OBR.onReady(() => {
       } catch (error) {
         await refreshItems();
       } finally {
-        await endInteractionPause();
+        state.activeZSliderItemId = null;
+        if (!state.hoveredZSliderItemId || state.hoveredZSliderItemId !== slider.dataset.itemId) {
+          await endInteractionPause();
+        }
       }
     });
 
     list.addEventListener("pointercancel", async (event) => {
       const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
       if (!slider) return;
-      await endInteractionPause();
+      state.activeZSliderItemId = null;
+      if (!state.hoveredZSliderItemId || state.hoveredZSliderItemId !== slider.dataset.itemId) {
+        await endInteractionPause();
+      }
     });
   }
 
