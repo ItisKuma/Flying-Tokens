@@ -25,13 +25,19 @@ const state = {
   items: [],
   sceneReady: false,
   lightDragActive: false,
+  role: "PLAYER",
 };
 
 let animationIntervalId = 0;
 let animationSyncInFlight = false;
 
 async function syncAnimatedTokenScales() {
-  if (!state.sceneReady || animationSyncInFlight || !hasAnimationLeadership()) {
+  if (
+    !state.sceneReady ||
+    animationSyncInFlight ||
+    !hasAnimationLeadership() ||
+    state.role !== "GM"
+  ) {
     return;
   }
 
@@ -135,6 +141,14 @@ function startAnimationLoop() {
 
 OBR.onReady(() => {
   startAnimationLeadership();
+
+  OBR.player.getRole().then((role) => {
+    state.role = role;
+  });
+
+  OBR.player.onChange((player) => {
+    state.role = player?.role ?? "PLAYER";
+  });
 
   subscribeToRoomSettings((settings) => {
     state.lightDragActive = Boolean(settings?.lightDragActive);
