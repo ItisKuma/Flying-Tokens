@@ -1,71 +1,61 @@
-import OBR, { buildEffect } from "@owlbear-rodeo/sdk";
+import OBR, { buildShape } from "@owlbear-rodeo/sdk";
 import { getFlyingItems, NS } from "./flying.js";
-import { getFloatAnimationAmplitude, isFloatAnimationEnabled, getTokenPhaseOffset } from "./floatAnimation.js";
+import { getFloatAnimationAmplitude, getTokenPhaseOffset, isFloatAnimationEnabled } from "./floatAnimation.js";
 
 export const LOCAL_FLOAT_EFFECT_NS = `${NS}-local-float`;
 const FLOAT_EFFECT_ID_PREFIX = `${NS}/float-effect/`;
-
-const FLOAT_EFFECT_SKSL = `
-uniform vec2 size;
-uniform float time;
-uniform float amplitude;
-uniform float phase;
-
-half4 main(float2 coord) {
-  vec2 center = size * 0.5;
-  vec2 safeCenter = max(center, vec2(1.0));
-  float pulse = sin(time * 2.4 + phase) * amplitude;
-  float radius = 0.68 + pulse;
-  vec2 p = (coord - center) / safeCenter;
-  float dist = length(p);
-
-  float outerGlow = 1.0 - smoothstep(radius, radius + 0.2, dist);
-  float innerCut = 1.0 - smoothstep(max(0.0, radius - 0.18), radius - 0.04, dist);
-  float ring = clamp(outerGlow - innerCut, 0.0, 1.0);
-  float alpha = ring * 0.28;
-
-  return half4(alpha * 1.0, alpha * 0.92, alpha * 0.62, alpha);
-}
-`;
 
 function getFloatEffectId(itemId) {
   return `${FLOAT_EFFECT_ID_PREFIX}${itemId}`;
 }
 
-function getPulseAmplitude() {
-  const amplitudeFeet = getFloatAnimationAmplitude();
-  return 0.025 + amplitudeFeet * 0.012;
+function getPulseFactor(item, now = performance.now()) {
+  const phase = (now / 1000) * 2.4 + getTokenPhaseOffset(item);
+  return (Math.sin(phase) + 1) * 0.5;
 }
 
-function getEffectSize(bounds) {
-  const width = Number(bounds?.width ?? 100);
-  const height = Number(bounds?.height ?? 100);
+function getRingScale(item, now = performance.now()) {
+  const pulse = getPulseFactor(item, now);
+  const amplitude = getFloatAnimationAmplitude();
+  return 1.02 + pulse * (0.04 + amplitude * 0.01);
+}
+
+function getRingStrokeOpacity(item, now = performance.now()) {
+  const pulse = getPulseFactor(item, now);
+  return 0.18 + pulse * 0.18;
+}
+
+function getRingSize(bounds, item, now = performance.now()) {
+  const width = Number(bounds?.width ?? item?.image?.width ?? item?.shape?.width ?? item?.width ?? 100);
+  const height = Number(bounds?.height ?? item?.image?.height ?? item?.shape?.height ?? item?.height ?? 100);
+  const scale = getRingScale(item, now);
 
   return {
-    width: width * 1.24,
-    height: height * 1.24,
+    width: width * scale,
+    height: height * scale,
   };
 }
 
-function buildLocalFloatEffect(item, bounds) {
-  const size = getEffectSize(bounds);
+function buildLocalFloatEffect(item, bounds, now = performance.now()) {
+  const size = getRingSize(bounds, item, now);
+  const center = bounds?.center ?? item.position ?? { x: 0, y: 0 };
 
-  return buildEffect()
+  return buildShape()
     .id(getFloatEffectId(item.id))
     .name("Float Pulse")
-    .effectType("ATTACHMENT")
+    .shapeType("CIRCLE")
     .width(size.width)
     .height(size.height)
-    .attachedTo(item.id)
-    .layer("POST_PROCESS")
-    .blendMode("SCREEN")
+    .position(center)
+    .rotation(0)
+    .fillOpacity(0)
+    .strokeColor("#ffe4a3")
+    .strokeOpacity(getRingStrokeOpacity(item, now))
+    .strokeWidth(10)
+    .layer("ATTACHMENT")
     .locked(true)
     .disableHit(true)
-    .sksl(FLOAT_EFFECT_SKSL)
-    .uniforms([
-      { name: "amplitude", value: getPulseAmplitude() },
-      { name: "phase", value: getTokenPhaseOffset(item) },
-    ])
+    .disableAutoZIndex(true)
     .metadata({
       [LOCAL_FLOAT_EFFECT_NS]: {
         effectFor: item.id,
@@ -115,6 +105,7 @@ export async function syncLocalFloatEffects(items) {
   const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
   const itemsToAdd = [];
   const boundsById = new Map();
+  const now = performance.now();
 
   for (const item of flyingItems) {
     try {
@@ -126,7 +117,7 @@ export async function syncLocalFloatEffects(items) {
   }
 
   for (const item of flyingItems) {
-    const effect = buildLocalFloatEffect(item, boundsById.get(item.id));
+    const effect = buildLocalFloatEffect(item, boundsById.get(item.id), now);
     const existingEffect = localItemsById.get(effect.id);
 
     if (!existingEffect || existingEffect.type !== effect.type) {
@@ -139,18 +130,18 @@ export async function syncLocalFloatEffects(items) {
 
     await OBR.scene.local.updateItems([effect.id], (items) => {
       for (const localItem of items) {
+        localItem.position = effect.position;
         localItem.layer = effect.layer;
         localItem.locked = effect.locked;
         localItem.visible = effect.visible;
         localItem.disableHit = effect.disableHit;
+        localItem.disableAutoZIndex = effect.disableAutoZIndex;
         localItem.metadata = effect.metadata;
         localItem.width = effect.width;
         localItem.height = effect.height;
-        localItem.sksl = effect.sksl;
-        localItem.uniforms = effect.uniforms;
-        localItem.effectType = effect.effectType;
-        localItem.blendMode = effect.blendMode;
-        localItem.attachedTo = effect.attachedTo;
+        localItem.rotation = effect.rotation;
+        localItem.style = effect.style;
+        localItem.shapeType = effect.shapeType;
       }
     });
   }
