@@ -170,6 +170,11 @@ export function hasActiveGifPrototype(item) {
   return Boolean(getGifPrototypeData(item)?.active);
 }
 
+export function hasPendingGifPrototype(item) {
+  const prototypeData = getGifPrototypeData(item);
+  return Boolean(prototypeData?.uploadName && !prototypeData?.active);
+}
+
 export async function restoreGifPrototype(itemId) {
   await OBR.scene.items.updateItems([itemId], (items) => {
     for (const item of items) {
@@ -243,6 +248,14 @@ export async function ensureGifPrototype(item) {
     return { reused: true };
   }
 
+  return generateGifPrototype(item);
+}
+
+export async function generateGifPrototype(item) {
+  if (!item?.id || !item?.image?.url) {
+    throw new Error("Selected token does not have an image");
+  }
+
   const bitmap = await loadImageBitmap(item.image.url);
   const gifBlob = encodeGifFromBitmap(bitmap);
   const uploadName = buildUploadName(item);
@@ -253,7 +266,42 @@ export async function ensureGifPrototype(item) {
 
   await OBR.assets.uploadImages([upload], "CHARACTER");
 
-  const downloads = await OBR.assets.downloadImages(false, uploadName, "CHARACTER");
+  await OBR.scene.items.updateItems([item.id], (items) => {
+    for (const currentItem of items) {
+      if (!currentItem?.metadata?.[NS]) continue;
+
+      const currentData = currentItem.metadata[NS];
+      const currentPrototype = currentData.gifPrototype;
+      const originalImage = currentPrototype?.originalImage ?? cloneJson(item.image);
+      const originalGrid = currentPrototype?.originalGrid ?? cloneJson(item.grid);
+
+      currentItem.metadata = {
+        ...currentItem.metadata,
+        [NS]: {
+          ...currentData,
+          gifPrototype: {
+            active: false,
+            originalImage,
+            originalGrid,
+            uploadName,
+          },
+        },
+      };
+    }
+  });
+
+  return { generated: true, uploadName };
+}
+
+export async function selectGifPrototype(item) {
+  if (!item?.id) {
+    throw new Error("Selected token does not exist");
+  }
+
+  const prototypeData = getGifPrototypeData(item);
+  const originalUrl = getOriginalImageKey(item);
+  const search = prototypeData?.uploadName || sanitizeName(item?.name || "Token");
+  const downloads = await OBR.assets.downloadImages(false, search, "CHARACTER");
   const selectedAsset = downloads?.[0];
 
   if (!selectedAsset?.image?.url) {
@@ -263,11 +311,11 @@ export async function ensureGifPrototype(item) {
   const cacheEntry = {
     image: cloneJson(selectedAsset.image),
     grid: cloneJson(selectedAsset.grid),
-    name: selectedAsset.name ?? uploadName,
+    name: selectedAsset.name ?? search,
   };
 
   await setGifCacheEntry(originalUrl, cacheEntry);
   await applyPrototypeAssetToToken(item.id, cacheEntry, item);
 
-  return { reused: false };
+  return { selected: true };
 }

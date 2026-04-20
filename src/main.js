@@ -9,9 +9,11 @@ import {
 } from "./flying.js";
 import { getFloatAnimationAmplitude, isFloatAnimationEnabled } from "./floatAnimation.js";
 import {
-  ensureGifPrototype,
+  generateGifPrototype,
   hasActiveGifPrototype,
+  hasPendingGifPrototype,
   restoreGifPrototype,
+  selectGifPrototype,
   syncGifPrototypes,
 } from "./gifPrototype.js";
 import { clearLocalShadows, getLightVector, syncLocalShadows } from "./shadow.js";
@@ -115,15 +117,26 @@ function renderFlyingList() {
     upButton.dataset.itemId = item.id;
     upButton.disabled = isBusy;
 
-    const gifButton = document.createElement("button");
-    gifButton.type = "button";
-    gifButton.className = "flying-row__secondary-action";
-    gifButton.textContent = isBusy ? "Working..." : "GIF";
-    gifButton.dataset.action = "make-gif";
-    gifButton.dataset.itemId = item.id;
-    gifButton.disabled = isBusy;
+    const generateGifButton = document.createElement("button");
+    generateGifButton.type = "button";
+    generateGifButton.className = "flying-row__secondary-action";
+    generateGifButton.textContent = isBusy ? "Working..." : "Generate GIF";
+    generateGifButton.dataset.action = "generate-gif";
+    generateGifButton.dataset.itemId = item.id;
+    generateGifButton.disabled = isBusy;
 
-    controls.append(downButton, upButton, gifButton);
+    controls.append(downButton, upButton, generateGifButton);
+
+    if (hasPendingGifPrototype(item) || hasActiveGifPrototype(item)) {
+      const useGifButton = document.createElement("button");
+      useGifButton.type = "button";
+      useGifButton.className = "flying-row__secondary-action";
+      useGifButton.textContent = isBusy ? "Working..." : "Use GIF";
+      useGifButton.dataset.action = "use-gif";
+      useGifButton.dataset.itemId = item.id;
+      useGifButton.disabled = isBusy;
+      controls.append(useGifButton);
+    }
 
     if (hasActiveGifPrototype(item)) {
       const restoreButton = document.createElement("button");
@@ -250,13 +263,19 @@ OBR.onReady(() => {
 
       if (!item || !isFlying(item)) return;
 
-      if (button.dataset.action === "make-gif" || button.dataset.action === "restore-gif") {
+      if (
+        button.dataset.action === "generate-gif" ||
+        button.dataset.action === "use-gif" ||
+        button.dataset.action === "restore-gif"
+      ) {
         state.busyGifItemIds.add(itemId);
         render();
 
         try {
-          if (button.dataset.action === "make-gif") {
-            await ensureGifPrototype(item);
+          if (button.dataset.action === "generate-gif") {
+            await generateGifPrototype(item);
+          } else if (button.dataset.action === "use-gif") {
+            await selectGifPrototype(item);
           } else {
             await restoreGifPrototype(itemId);
           }
