@@ -8,7 +8,6 @@ import {
   setFlyingHeight,
 } from "./flying.js";
 import { getFloatAnimationAmplitude, isFloatAnimationEnabled } from "./floatAnimation.js";
-import { clearLocalFloatEffects, syncLocalFloatEffects } from "./floatEffect.js";
 import { ensureGifPrototype, hasActiveGifPrototype, restoreGifPrototype } from "./gifPrototype.js";
 import { clearLocalShadows, getLightVector, syncLocalShadows } from "./shadow.js";
 import {
@@ -57,6 +56,7 @@ function renderFlyingList() {
   emptyState.textContent = "No flying tokens in this scene.";
 
   for (const item of flyingItems) {
+    const isBusy = state.busyGifItemIds.has(item.id);
     const row = document.createElement("li");
     row.className = "flying-row";
 
@@ -95,7 +95,6 @@ function renderFlyingList() {
 
     const controls = document.createElement("div");
     controls.className = "flying-row__controls";
-    const isBusy = state.busyGifItemIds.has(item.id);
 
     const downButton = document.createElement("button");
     downButton.type = "button";
@@ -207,7 +206,6 @@ async function refreshItems() {
     throw error;
   }
 
-  await syncLocalFloatEffects(state.items);
   await syncLocalShadows(state.items);
   render();
 }
@@ -223,10 +221,7 @@ OBR.onReady(() => {
     applyRuntimeSettings(getEffectiveSettings(settings));
 
     if (state.sceneReady) {
-      Promise.all([
-        syncLocalFloatEffects(state.items),
-        syncLocalShadows(state.items),
-      ]).then(render);
+      syncLocalShadows(state.items).then(render);
       return;
     }
 
@@ -390,10 +385,7 @@ OBR.onReady(() => {
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
-    Promise.all([
-      syncLocalFloatEffects(state.items),
-      syncLocalShadows(state.items),
-    ]).then(render);
+    syncLocalShadows(state.items).then(render);
   });
 
   OBR.scene.onReadyChange(async (ready) => {
@@ -401,7 +393,6 @@ OBR.onReady(() => {
 
     if (!ready) {
       state.items = [];
-      clearLocalFloatEffects();
       clearLocalShadows();
       render();
       return;

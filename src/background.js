@@ -1,7 +1,7 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { isFloatAnimationEnabled } from "./floatAnimation.js";
 import { setupContextMenu } from "./contextMenu.js";
-import { clearLocalFloatEffects, syncLocalFloatEffects } from "./floatEffect.js";
+import { clearLocalFloatEffects } from "./floatEffect.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeSettings,
@@ -41,7 +41,6 @@ async function refreshItems() {
     return;
   }
 
-  await syncLocalFloatEffects(state.items);
   await syncLocalShadows(state.items);
 }
 
@@ -54,7 +53,6 @@ async function runAnimationTick() {
     return;
   }
 
-  await syncLocalFloatEffects(state.items);
   await syncLocalShadows(state.items);
 }
 
@@ -87,7 +85,6 @@ OBR.onReady(() => {
       return;
     }
 
-    syncLocalFloatEffects(state.items);
     syncLocalShadows(state.items);
   });
 
@@ -97,7 +94,6 @@ OBR.onReady(() => {
     if (!state.sceneReady) return;
     state.items = items;
     if (state.lightDragActive) return;
-    syncLocalFloatEffects(state.items);
     syncLocalShadows(state.items);
   });
 
@@ -122,11 +118,13 @@ OBR.onReady(() => {
     state.sceneReady = ready;
 
     if (!ready) {
+      clearLocalFloatEffects();
       return;
     }
 
     const settings = await getRoomSettings();
     applyRuntimeSettings(settings);
+    await clearLocalFloatEffects();
     await refreshItems();
     startAnimationLoop();
   });
