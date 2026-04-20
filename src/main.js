@@ -8,7 +8,12 @@ import {
   setFlyingHeight,
 } from "./flying.js";
 import { getFloatAnimationAmplitude, isFloatAnimationEnabled } from "./floatAnimation.js";
-import { ensureGifPrototype, hasActiveGifPrototype, restoreGifPrototype } from "./gifPrototype.js";
+import {
+  ensureGifPrototype,
+  hasActiveGifPrototype,
+  restoreGifPrototype,
+  syncGifPrototypes,
+} from "./gifPrototype.js";
 import { clearLocalShadows, getLightVector, syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeSettings,
@@ -206,6 +211,8 @@ async function refreshItems() {
     throw error;
   }
 
+  await syncGifPrototypes(state.items);
+  state.items = await OBR.scene.items.getItems();
   await syncLocalShadows(state.items);
   render();
 }
@@ -221,7 +228,12 @@ OBR.onReady(() => {
     applyRuntimeSettings(getEffectiveSettings(settings));
 
     if (state.sceneReady) {
-      syncLocalShadows(state.items).then(render);
+      syncGifPrototypes(state.items)
+        .then(async () => {
+          state.items = await OBR.scene.items.getItems();
+          await syncLocalShadows(state.items);
+        })
+        .then(render);
       return;
     }
 
@@ -385,7 +397,12 @@ OBR.onReady(() => {
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
-    syncLocalShadows(state.items).then(render);
+    syncGifPrototypes(state.items)
+      .then(async () => {
+        state.items = await OBR.scene.items.getItems();
+        await syncLocalShadows(state.items);
+      })
+      .then(render);
   });
 
   OBR.scene.onReadyChange(async (ready) => {

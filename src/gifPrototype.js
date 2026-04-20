@@ -1,6 +1,6 @@
 import OBR, { buildImageUpload } from "@owlbear-rodeo/sdk";
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
-import { NS } from "./flying.js";
+import { NS, isFlying } from "./flying.js";
 
 const GIF_CACHE_KEY = `${NS}/gif-cache`;
 const FRAME_COUNT = 10;
@@ -149,6 +149,23 @@ async function applyPrototypeAssetToToken(itemId, asset, itemSnapshot) {
   });
 }
 
+async function applyCachedGifPrototypeToToken(item, cachedAsset) {
+  if (!item?.id || !cachedAsset?.image?.url) {
+    return false;
+  }
+
+  if (!isFlying(item)) {
+    return false;
+  }
+
+  if (hasActiveGifPrototype(item)) {
+    return false;
+  }
+
+  await applyPrototypeAssetToToken(item.id, cachedAsset, item);
+  return true;
+}
+
 export function hasActiveGifPrototype(item) {
   return Boolean(getGifPrototypeData(item)?.active);
 }
@@ -175,6 +192,41 @@ export async function restoreGifPrototype(itemId) {
       };
     }
   });
+}
+
+export async function restoreGifPrototypeFromItem(item) {
+  if (!item?.id || !getGifPrototypeData(item)?.active) {
+    return false;
+  }
+
+  await restoreGifPrototype(item.id);
+  return true;
+}
+
+export async function syncGifPrototypes(items) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return;
+  }
+
+  const cache = await getGifCache();
+
+  for (const item of items) {
+    if (!item?.id) continue;
+
+    if (isFlying(item)) {
+      const originalUrl = getOriginalImageKey(item);
+      const cachedAsset = cache[originalUrl];
+
+      if (cachedAsset?.image?.url) {
+        await applyCachedGifPrototypeToToken(item, cachedAsset);
+      }
+      continue;
+    }
+
+    if (hasActiveGifPrototype(item)) {
+      await restoreGifPrototypeFromItem(item);
+    }
+  }
 }
 
 export async function ensureGifPrototype(item) {

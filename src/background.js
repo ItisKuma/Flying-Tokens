@@ -2,6 +2,7 @@ import OBR from "@owlbear-rodeo/sdk";
 import { isFloatAnimationEnabled } from "./floatAnimation.js";
 import { setupContextMenu } from "./contextMenu.js";
 import { clearLocalFloatEffects } from "./floatEffect.js";
+import { syncGifPrototypes } from "./gifPrototype.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeSettings,
@@ -37,6 +38,9 @@ async function refreshItems() {
     throw error;
   }
 
+  await syncGifPrototypes(state.items);
+  state.items = await OBR.scene.items.getItems();
+
   if (state.lightDragActive) {
     return;
   }
@@ -53,6 +57,8 @@ async function runAnimationTick() {
     return;
   }
 
+  await syncGifPrototypes(state.items);
+  state.items = await OBR.scene.items.getItems();
   await syncLocalShadows(state.items);
 }
 
@@ -85,7 +91,11 @@ OBR.onReady(() => {
       return;
     }
 
-    syncLocalShadows(state.items);
+    syncGifPrototypes(state.items)
+      .then(async () => {
+        state.items = await OBR.scene.items.getItems();
+        await syncLocalShadows(state.items);
+      });
   });
 
   setupContextMenu();
@@ -94,7 +104,11 @@ OBR.onReady(() => {
     if (!state.sceneReady) return;
     state.items = items;
     if (state.lightDragActive) return;
-    syncLocalShadows(state.items);
+    syncGifPrototypes(state.items)
+      .then(async () => {
+        state.items = await OBR.scene.items.getItems();
+        await syncLocalShadows(state.items);
+      });
   });
 
   OBR.scene.onReadyChange(async (ready) => {
