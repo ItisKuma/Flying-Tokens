@@ -9,6 +9,7 @@ import {
 } from "./flying.js";
 import { getFloatAnimationAmplitude, isFloatAnimationEnabled } from "./floatAnimation.js";
 import { clearLocalFloatEffects, syncLocalFloatEffects } from "./floatEffect.js";
+import { ensureGifPrototype, hasActiveGifPrototype, restoreGifPrototype } from "./gifPrototype.js";
 import { clearLocalShadows, getLightVector, syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeSettings,
@@ -22,6 +23,7 @@ const state = {
   sceneReady: false,
   isAdjustingLight: false,
   pendingLightVector: null,
+  busyGifItemIds: new Set(),
 };
 
 function getEffectiveSettings(settings) {
@@ -87,25 +89,49 @@ function renderFlyingList() {
     slider.value = String(getItemZFeet(item));
     slider.dataset.action = "set-z";
     slider.dataset.itemId = item.id;
+    slider.disabled = isBusy;
 
     sliderWrap.append(slider);
 
     const controls = document.createElement("div");
     controls.className = "flying-row__controls";
+    const isBusy = state.busyGifItemIds.has(item.id);
 
     const downButton = document.createElement("button");
     downButton.type = "button";
     downButton.textContent = "-5";
     downButton.dataset.action = "decrease-z";
     downButton.dataset.itemId = item.id;
+    downButton.disabled = isBusy;
 
     const upButton = document.createElement("button");
     upButton.type = "button";
     upButton.textContent = "+5";
     upButton.dataset.action = "increase-z";
     upButton.dataset.itemId = item.id;
+    upButton.disabled = isBusy;
 
-    controls.append(downButton, upButton);
+    const gifButton = document.createElement("button");
+    gifButton.type = "button";
+    gifButton.className = "flying-row__secondary-action";
+    gifButton.textContent = isBusy ? "Working..." : "GIF";
+    gifButton.dataset.action = "make-gif";
+    gifButton.dataset.itemId = item.id;
+    gifButton.disabled = isBusy;
+
+    controls.append(downButton, upButton, gifButton);
+
+    if (hasActiveGifPrototype(item)) {
+      const restoreButton = document.createElement("button");
+      restoreButton.type = "button";
+      restoreButton.className = "flying-row__secondary-action";
+      restoreButton.textContent = isBusy ? "Working..." : "Restore";
+      restoreButton.dataset.action = "restore-gif";
+      restoreButton.dataset.itemId = item.id;
+      restoreButton.disabled = isBusy;
+      controls.append(restoreButton);
+    }
+
     row.append(info, controls, sliderWrap);
     list.append(row);
   }
@@ -216,6 +242,26 @@ OBR.onReady(() => {
       const item = state.items.find((candidate) => candidate.id === itemId);
 
       if (!item || !isFlying(item)) return;
+
+      if (button.dataset.action === "make-gif" || button.dataset.action === "restore-gif") {
+        state.busyGifItemIds.add(itemId);
+        render();
+
+        try {
+          if (button.dataset.action === "make-gif") {
+            await ensureGifPrototype(item);
+          } else {
+            await restoreGifPrototype(itemId);
+          }
+        } catch (error) {
+          console.error("Simple Flying GIF prototype error", error);
+        } finally {
+          state.busyGifItemIds.delete(itemId);
+        }
+
+        await refreshItems();
+        return;
+      }
 
       const delta = button.dataset.action === "increase-z" ? Z_STEP_FEET : -Z_STEP_FEET;
       await setFlyingHeight(item.id, getItemZFeet(item) + delta);

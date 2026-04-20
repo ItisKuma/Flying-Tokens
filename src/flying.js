@@ -28,7 +28,7 @@ function buildFlyingTextContent(currentText, zFeet) {
     style: {
       padding: 8,
       fontFamily: "Roboto",
-      fontSize: 24,
+      fontSize: 40,
       fontWeight: 400,
       textAlign: "CENTER",
       textAlignVertical: "BOTTOM",
@@ -65,6 +65,7 @@ function buildFlyingTextContent(currentText, zFeet) {
       strokeColor: "#0f1118",
       strokeOpacity: 0.95,
       strokeWidth: 3,
+      fontSize: 40,
       fontWeight: 700,
       padding: 6,
     },

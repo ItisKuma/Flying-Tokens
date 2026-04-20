@@ -13,6 +13,7 @@
     "vite": "^8.0.3"
   },
   "dependencies": {
-    "@owlbear-rodeo/sdk": "^3.1.0"
+    "@owlbear-rodeo/sdk": "^3.1.0",
+    "gifenc": "^1.0.3"
   }
 }
