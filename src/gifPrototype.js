@@ -13,6 +13,7 @@ const FRAME_DELAY_MS = Math.round(FLOAT_ANIMATION_CYCLE_MS / FRAME_COUNT);
 const BASE_SCALE_AMPLITUDE = 0.02;
 const AMPLITUDE_SCALE_PER_FOOT = 0.0025;
 const FRAME_PADDING_RATIO = 0.08;
+const GIF_EXPORT_SCALE = 2;
 
 function cloneJson(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -28,6 +29,11 @@ function sanitizeName(value) {
 
 function getGifPrototypeData(item) {
   return item?.metadata?.[NS]?.gifPrototype ?? null;
+}
+
+function shouldUseGifWhileFlying(item) {
+  const prototypeData = getGifPrototypeData(item);
+  return prototypeData?.useGifWhileFlying !== false;
 }
 
 function getGifCacheFromMetadata(metadata) {
@@ -66,8 +72,8 @@ async function loadImageBitmap(url) {
 function drawPulseFrame(context, bitmap, width, height, scale) {
   context.clearRect(0, 0, width, height);
 
-  const baseWidth = bitmap.width;
-  const baseHeight = bitmap.height;
+  const baseWidth = bitmap.width * GIF_EXPORT_SCALE;
+  const baseHeight = bitmap.height * GIF_EXPORT_SCALE;
   const scaledWidth = baseWidth * scale;
   const scaledHeight = baseHeight * scale;
   const drawX = (width - scaledWidth) / 2;
@@ -78,8 +84,8 @@ function drawPulseFrame(context, bitmap, width, height, scale) {
 
 function getGifFrameDimensions(bitmap) {
   return {
-    width: Math.ceil(bitmap.width * (1 + FRAME_PADDING_RATIO * 2)),
-    height: Math.ceil(bitmap.height * (1 + FRAME_PADDING_RATIO * 2)),
+    width: Math.ceil(bitmap.width * GIF_EXPORT_SCALE * (1 + FRAME_PADDING_RATIO * 2)),
+    height: Math.ceil(bitmap.height * GIF_EXPORT_SCALE * (1 + FRAME_PADDING_RATIO * 2)),
   };
 }
 
@@ -175,6 +181,7 @@ async function applyPrototypeAssetToToken(itemId, asset, itemSnapshot) {
           ...currentData,
           gifPrototype: {
             active: true,
+            useGifWhileFlying: true,
             originalImage,
             originalGrid,
             assetImage: cloneJson(asset.image),
@@ -193,6 +200,10 @@ async function applyCachedGifPrototypeToToken(item, cachedAsset) {
   }
 
   if (!isFlying(item)) {
+    return false;
+  }
+
+  if (!shouldUseGifWhileFlying(item)) {
     return false;
   }
 
@@ -226,12 +237,16 @@ export async function restoreGifPrototype(itemId) {
       item.image = cloneJson(currentPrototype.originalImage);
       item.grid = cloneJson(currentPrototype.originalGrid);
 
-      const nextData = { ...currentData };
-      delete nextData.gifPrototype;
-
       item.metadata = {
         ...item.metadata,
-        [NS]: nextData,
+        [NS]: {
+          ...currentData,
+          gifPrototype: {
+            ...currentPrototype,
+            active: false,
+            useGifWhileFlying: false,
+          },
+        },
       };
     }
   });
@@ -257,6 +272,10 @@ export async function syncGifPrototypes(items) {
     if (!item?.id) continue;
 
     if (isFlying(item)) {
+      if (!shouldUseGifWhileFlying(item)) {
+        continue;
+      }
+
       const originalUrl = getOriginalImageKey(item);
       const cachedAsset = cache[originalUrl];
 
@@ -325,6 +344,7 @@ export async function generateGifPrototype(item) {
           ...currentData,
           gifPrototype: {
             active: false,
+            useGifWhileFlying: false,
             originalImage,
             originalGrid,
             uploadName,
