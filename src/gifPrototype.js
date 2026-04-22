@@ -3,9 +3,10 @@ import { GIFEncoder, applyPalette, quantize } from "gifenc";
 import { NS, isFlying } from "./flying.js";
 
 const GIF_CACHE_KEY = `${NS}/gif-cache`;
-const FRAME_COUNT = 10;
-const FRAME_DELAY_MS = 70;
-const SCALE_AMPLITUDE = 0.08;
+const FRAME_COUNT = 12;
+const FRAME_DELAY_MS = 110;
+const SCALE_AMPLITUDE = 0.03;
+const FRAME_PADDING_RATIO = 0.08;
 
 function cloneJson(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -15,7 +16,7 @@ function sanitizeName(value) {
   return String(value ?? "token")
     .replace(/[^\w\s-]+/g, "")
     .trim()
-    .replace(/\s+/g, " ")
+    .replace(/\s+/g, "_")
     .slice(0, 48);
 }
 
@@ -59,17 +60,39 @@ async function loadImageBitmap(url) {
 function drawPulseFrame(context, bitmap, width, height, scale) {
   context.clearRect(0, 0, width, height);
 
-  const scaledWidth = width * scale;
-  const scaledHeight = height * scale;
+  const baseWidth = bitmap.width;
+  const baseHeight = bitmap.height;
+  const scaledWidth = baseWidth * scale;
+  const scaledHeight = baseHeight * scale;
   const drawX = (width - scaledWidth) / 2;
   const drawY = (height - scaledHeight) / 2;
 
   context.drawImage(bitmap, drawX, drawY, scaledWidth, scaledHeight);
 }
 
+function getGifFrameDimensions(bitmap) {
+  return {
+    width: Math.ceil(bitmap.width * (1 + FRAME_PADDING_RATIO * 2)),
+    height: Math.ceil(bitmap.height * (1 + FRAME_PADDING_RATIO * 2)),
+  };
+}
+
+function getUploadGrid(item, widthScale, heightScale) {
+  const grid = cloneJson(item?.grid) ?? {
+    dpi: 150,
+    offset: { x: 0, y: 0 },
+  };
+
+  const dominantScale = Math.max(widthScale, heightScale);
+
+  return {
+    ...grid,
+    dpi: Number(grid.dpi ?? 150) * dominantScale,
+  };
+}
+
 function encodeGifFromBitmap(bitmap) {
-  const width = bitmap.width;
-  const height = bitmap.height;
+  const { width, height } = getGifFrameDimensions(bitmap);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -111,7 +134,7 @@ function encodeGifFromBitmap(bitmap) {
 }
 
 function buildUploadName(item) {
-  return `Simple Flying ${sanitizeName(item?.name || "Token")} ${Date.now()}`;
+  return `${sanitizeName(item?.name || "token")}_flying`;
 }
 
 function getOriginalImageKey(item) {
@@ -258,10 +281,16 @@ export async function generateGifPrototype(item) {
 
   const bitmap = await loadImageBitmap(item.image.url);
   const gifBlob = encodeGifFromBitmap(bitmap);
+  const frameSize = getGifFrameDimensions(bitmap);
+  const uploadGrid = getUploadGrid(
+    item,
+    frameSize.width / bitmap.width,
+    frameSize.height / bitmap.height,
+  );
   const uploadName = buildUploadName(item);
   const upload = buildImageUpload(gifBlob)
     .name(uploadName)
-    .grid(cloneJson(item.grid))
+    .grid(uploadGrid)
     .build();
 
   await OBR.assets.uploadImages([upload], "CHARACTER");

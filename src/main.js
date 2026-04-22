@@ -131,7 +131,7 @@ function renderFlyingList() {
       const useGifButton = document.createElement("button");
       useGifButton.type = "button";
       useGifButton.className = "flying-row__secondary-action";
-      useGifButton.textContent = isBusy ? "Working..." : "Use GIF";
+      useGifButton.textContent = isBusy ? "Working..." : "Link GIF";
       useGifButton.dataset.action = "use-gif";
       useGifButton.dataset.itemId = item.id;
       useGifButton.disabled = isBusy;
@@ -142,7 +142,7 @@ function renderFlyingList() {
       const restoreButton = document.createElement("button");
       restoreButton.type = "button";
       restoreButton.className = "flying-row__secondary-action";
-      restoreButton.textContent = isBusy ? "Working..." : "Restore";
+      restoreButton.textContent = isBusy ? "Working..." : "Restore Original";
       restoreButton.dataset.action = "restore-gif";
       restoreButton.dataset.itemId = item.id;
       restoreButton.disabled = isBusy;
