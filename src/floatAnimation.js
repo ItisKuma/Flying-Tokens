@@ -4,7 +4,7 @@ export const MIN_FLOAT_ANIMATION_AMPLITUDE = 1;
 export const MAX_FLOAT_ANIMATION_AMPLITUDE = 10;
 export const DEFAULT_FLOAT_ANIMATION_AMPLITUDE = 5;
 
-const FLOAT_ANIMATION_CYCLE_MS = 3200;
+export const FLOAT_ANIMATION_CYCLE_MS = 3200;
 
 let floatAnimationEnabled = false;
 let floatAnimationAmplitude = DEFAULT_FLOAT_ANIMATION_AMPLITUDE;

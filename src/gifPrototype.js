@@ -1,11 +1,17 @@
 import OBR, { buildImageUpload } from "@owlbear-rodeo/sdk";
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
 import { NS, isFlying } from "./flying.js";
+import {
+  FLOAT_ANIMATION_CYCLE_MS,
+  getFloatAnimationAmplitude,
+  getTokenPhaseOffset,
+} from "./floatAnimation.js";
 
 const GIF_CACHE_KEY = `${NS}/gif-cache`;
-const FRAME_COUNT = 12;
-const FRAME_DELAY_MS = 110;
-const SCALE_AMPLITUDE = 0.03;
+const FRAME_COUNT = 16;
+const FRAME_DELAY_MS = Math.round(FLOAT_ANIMATION_CYCLE_MS / FRAME_COUNT);
+const BASE_SCALE_AMPLITUDE = 0.02;
+const AMPLITUDE_SCALE_PER_FOOT = 0.0025;
 const FRAME_PADDING_RATIO = 0.08;
 
 function cloneJson(value) {
@@ -91,7 +97,12 @@ function getUploadGrid(item, widthScale, heightScale) {
   };
 }
 
-function encodeGifFromBitmap(bitmap) {
+function getGifScaleAmplitude() {
+  const amplitudeFeet = getFloatAnimationAmplitude();
+  return BASE_SCALE_AMPLITUDE + amplitudeFeet * AMPLITUDE_SCALE_PER_FOOT;
+}
+
+function encodeGifFromBitmap(bitmap, item) {
   const { width, height } = getGifFrameDimensions(bitmap);
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -104,10 +115,14 @@ function encodeGifFromBitmap(bitmap) {
   }
 
   const gif = GIFEncoder();
+  const scaleAmplitude = getGifScaleAmplitude();
+  const startPhase =
+    ((performance.now() % FLOAT_ANIMATION_CYCLE_MS) / FLOAT_ANIMATION_CYCLE_MS) * Math.PI * 2 +
+    getTokenPhaseOffset(item);
 
   for (let index = 0; index < FRAME_COUNT; index += 1) {
-    const phase = (index / FRAME_COUNT) * Math.PI * 2;
-    const scale = 1 + Math.sin(phase) * SCALE_AMPLITUDE;
+    const phase = startPhase + (index / FRAME_COUNT) * Math.PI * 2;
+    const scale = 1 + Math.sin(phase) * scaleAmplitude;
     drawPulseFrame(context, bitmap, width, height, scale);
 
     const frame = context.getImageData(0, 0, width, height);
@@ -280,7 +295,7 @@ export async function generateGifPrototype(item) {
   }
 
   const bitmap = await loadImageBitmap(item.image.url);
-  const gifBlob = encodeGifFromBitmap(bitmap);
+  const gifBlob = encodeGifFromBitmap(bitmap, item);
   const frameSize = getGifFrameDimensions(bitmap);
   const uploadGrid = getUploadGrid(
     item,
