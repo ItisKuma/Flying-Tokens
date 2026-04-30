@@ -1,5 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { NS } from "./flying.js";
+import { LEGACY_NS, NS } from "./statusModel.js";
 import {
   DEFAULT_FLOAT_ANIMATION_AMPLITUDE,
   setFloatAnimationAmplitude,
@@ -8,6 +8,7 @@ import {
 import { setLightVector } from "./shadow.js";
 
 export const SETTINGS_KEY = `${NS}/settings`;
+const LEGACY_SETTINGS_KEY = `${LEGACY_NS}/settings`;
 
 const DEFAULT_SETTINGS = {
   lightVector: { x: -0.7, y: -0.7 },
@@ -35,7 +36,7 @@ export function normalizeSettings(rawSettings) {
 }
 
 export function getSettingsFromMetadata(metadata) {
-  return normalizeSettings(metadata?.[SETTINGS_KEY]);
+  return normalizeSettings(metadata?.[SETTINGS_KEY] ?? metadata?.[LEGACY_SETTINGS_KEY]);
 }
 
 export async function getRoomSettings() {

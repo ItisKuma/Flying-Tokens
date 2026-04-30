@@ -1,13 +1,15 @@
 import OBR, { buildImageUpload } from "@owlbear-rodeo/sdk";
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
-import { NS, isFlying } from "./flying.js";
+import { isFlying } from "./flying.js";
 import {
   FLOAT_ANIMATION_CYCLE_MS,
   getFloatAnimationAmplitude,
   getTokenPhaseOffset,
 } from "./floatAnimation.js";
+import { LEGACY_NS, NS } from "./statusModel.js";
 
 const GIF_CACHE_KEY = `${NS}/gif-cache`;
+const LEGACY_GIF_CACHE_KEY = `${LEGACY_NS}/gif-cache`;
 const FRAME_COUNT = 16;
 const FRAME_DELAY_MS = Math.round(FLOAT_ANIMATION_CYCLE_MS / FRAME_COUNT);
 const BASE_SCALE_AMPLITUDE = 0.02;
@@ -37,7 +39,7 @@ function shouldUseGifWhileFlying(item) {
 }
 
 function getGifCacheFromMetadata(metadata) {
-  return metadata?.[GIF_CACHE_KEY] ?? {};
+  return metadata?.[GIF_CACHE_KEY] ?? metadata?.[LEGACY_GIF_CACHE_KEY] ?? {};
 }
 
 async function getGifCache() {

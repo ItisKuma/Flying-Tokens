@@ -1,6 +1,7 @@
 import OBR, { buildShape } from "@owlbear-rodeo/sdk";
-import { getFlyingItems, NS } from "./flying.js";
+import { getFlyingItems } from "./flying.js";
 import { getFloatAnimationAmplitude, getTokenPhaseOffset, isFloatAnimationEnabled } from "./floatAnimation.js";
+import { NS } from "./statusModel.js";
 
 export const LOCAL_FLOAT_EFFECT_NS = `${NS}-local-float`;
 const FLOAT_EFFECT_ID_PREFIX = `${NS}/float-effect/`;

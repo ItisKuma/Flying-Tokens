@@ -1,6 +1,12 @@
 import OBR from "@owlbear-rodeo/sdk";
+import {
+  FLYING_STATUS_ID,
+  NS,
+  getStatusData,
+  removeItemStatusData,
+  setItemStatusData,
+} from "./statusModel.js";
 
-export const NS = "simple-flying";
 export const MIN_Z_FEET = 5;
 export const MAX_Z_FEET = 150;
 export const Z_STEP_FEET = 5;
@@ -86,11 +92,11 @@ export function clampZFeet(value) {
 }
 
 export function getFlyingData(item) {
-  return item?.metadata?.[NS];
+  return getStatusData(item, FLYING_STATUS_ID);
 }
 
 export function isFlying(item) {
-  return Boolean(getFlyingData(item)?.flying);
+  return Boolean(getFlyingData(item)?.active);
 }
 
 export function getItemZFeet(item) {
@@ -155,10 +161,10 @@ export async function toggleFlyingForItems(items) {
   for (const item of items) {
     if (!item) continue;
 
-    const data = item.metadata?.[NS];
+    const data = getFlyingData(item);
 
     // ENABLE FLYING
-    if (!data?.flying) {
+    if (!data?.active) {
       await OBR.scene.items.updateItems([item.id], (items) => {
         for (const i of items) {
           if (!i) continue;
@@ -166,17 +172,14 @@ export async function toggleFlyingForItems(items) {
           const baseZIndex = Number(i.zIndex ?? 0);
           const baseScale = i.scale ?? { x: 1, y: 1 };
 
-          i.metadata = {
-            ...i.metadata,
-            [NS]: {
-              flying: true,
-              zFeet: DEFAULT_Z_FEET,
-              baseZIndex,
-              baseScale,
-              baseText: cloneJson(i.text),
-              baseTextItemType: i.textItemType ?? "LABEL",
-            },
-          };
+          setItemStatusData(i, FLYING_STATUS_ID, {
+            active: true,
+            zFeet: DEFAULT_Z_FEET,
+            baseZIndex,
+            baseScale,
+            baseText: cloneJson(i.text),
+            baseTextItemType: i.textItemType ?? "LABEL",
+          });
           i.zIndex = getFlyingZIndex(baseZIndex, DEFAULT_Z_FEET);
           i.scale = getFlyingScale(baseScale, DEFAULT_Z_FEET);
           i.disableAutoZIndex = true;
@@ -190,21 +193,24 @@ export async function toggleFlyingForItems(items) {
     else {
       await OBR.scene.items.updateItems([item.id], (items) => {
         for (const i of items) {
-          if (!i || !i.metadata) continue;
+          if (!i) continue;
 
-          const baseZIndex = Number(data.baseZIndex ?? i.zIndex ?? 0);
-          const baseScale = data.baseScale ?? { x: 1, y: 1 };
-          const prototypeData = data.gifPrototype;
+          const currentData = getFlyingData(i);
+          if (!currentData) continue;
+
+          const baseZIndex = Number(currentData.baseZIndex ?? i.zIndex ?? 0);
+          const baseScale = currentData.baseScale ?? { x: 1, y: 1 };
+          const prototypeData = currentData.gifPrototype;
           i.zIndex = baseZIndex;
           i.scale = baseScale;
           i.disableAutoZIndex = false;
-          i.text = cloneJson(data.baseText) ?? i.text;
-          i.textItemType = data.baseTextItemType ?? i.textItemType ?? "LABEL";
+          i.text = cloneJson(currentData.baseText) ?? i.text;
+          i.textItemType = currentData.baseTextItemType ?? i.textItemType ?? "LABEL";
           if (prototypeData?.originalImage) {
             i.image = cloneJson(prototypeData.originalImage);
             i.grid = cloneJson(prototypeData.originalGrid);
           }
-          delete i.metadata[NS];
+          removeItemStatusData(i, FLYING_STATUS_ID);
         }
       });
     }
@@ -230,16 +236,13 @@ export async function setFlyingHeight(itemId, zFeet) {
       const baseZIndex = getBaseZIndex(item);
       const baseScale = getBaseScale(item);
 
-      item.metadata = {
-        ...item.metadata,
-        [NS]: {
-          ...getFlyingData(item),
-          flying: true,
-          zFeet: nextZFeet,
-          baseZIndex,
-          baseScale,
-        },
-      };
+      setItemStatusData(item, FLYING_STATUS_ID, {
+        ...getFlyingData(item),
+        active: true,
+        zFeet: nextZFeet,
+        baseZIndex,
+        baseScale,
+      });
       item.zIndex = getFlyingZIndex(baseZIndex, nextZFeet);
       item.scale = getFlyingScale(baseScale, nextZFeet);
       item.disableAutoZIndex = true;
@@ -263,13 +266,10 @@ export async function setItemZIndex(itemId, zIndex) {
       if (isFlying(item)) {
         const zFeet = getItemZFeet(item);
 
-        item.metadata = {
-          ...item.metadata,
-          [NS]: {
-            ...getFlyingData(item),
-            baseZIndex: nextZIndex,
-          },
-        };
+        setItemStatusData(item, FLYING_STATUS_ID, {
+          ...getFlyingData(item),
+          baseZIndex: nextZIndex,
+        });
         item.zIndex = getFlyingZIndex(nextZIndex, zFeet);
         item.scale = getFlyingScale(getBaseScale(item), zFeet);
         item.disableAutoZIndex = true;

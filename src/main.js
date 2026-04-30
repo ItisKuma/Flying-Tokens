@@ -1,4 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
+import { clearLocalDeadVisuals, syncLocalDeadVisuals } from "./deadVisuals.js";
 import {
   Z_STEP_FEET,
   getFlyingItems,
@@ -52,7 +53,7 @@ function renderFlyingList() {
   if (!state.sceneReady) {
     list.innerHTML = "";
     emptyState.hidden = false;
-    emptyState.textContent = "Open a scene to see flying tokens.";
+    emptyState.textContent = "Open a scene to see active token statuses.";
     return;
   }
 
@@ -60,7 +61,7 @@ function renderFlyingList() {
 
   list.innerHTML = "";
   emptyState.hidden = flyingItems.length > 0;
-  emptyState.textContent = "No flying tokens in this scene.";
+  emptyState.textContent = "No active token statuses in this scene.";
 
   for (const item of flyingItems) {
     const isBusy = state.busyGifItemIds.has(item.id);
@@ -226,6 +227,7 @@ async function refreshItems() {
 
   await syncGifPrototypes(state.items);
   state.items = await OBR.scene.items.getItems();
+  await syncLocalDeadVisuals(state.items);
   await syncLocalShadows(state.items);
   render();
 }
@@ -244,6 +246,7 @@ OBR.onReady(() => {
       syncGifPrototypes(state.items)
         .then(async () => {
           state.items = await OBR.scene.items.getItems();
+          await syncLocalDeadVisuals(state.items);
           await syncLocalShadows(state.items);
         })
         .then(render);
@@ -280,7 +283,7 @@ OBR.onReady(() => {
             await restoreGifPrototype(itemId);
           }
         } catch (error) {
-          console.error("Simple Flying GIF prototype error", error);
+          console.error("Token Status GIF prototype error", error);
         } finally {
           state.busyGifItemIds.delete(itemId);
         }
@@ -419,6 +422,7 @@ OBR.onReady(() => {
     syncGifPrototypes(state.items)
       .then(async () => {
         state.items = await OBR.scene.items.getItems();
+        await syncLocalDeadVisuals(state.items);
         await syncLocalShadows(state.items);
       })
       .then(render);
@@ -429,6 +433,7 @@ OBR.onReady(() => {
 
     if (!ready) {
       state.items = [];
+      clearLocalDeadVisuals();
       clearLocalShadows();
       render();
       return;

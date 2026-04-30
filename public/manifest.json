@@ -1,12 +1,12 @@
 {
-  "name": "Simple Flying",
+  "name": "Token Status",
   "version": "1.0.0",
   "manifest_version": 1,
   "author": "Kuma",
-  "description": "Top down flying system",
+  "description": "Token status system for Owlbear Rodeo",
   "background_url": "/background.html",
   "action": {
-    "title": "Simple Flying",
+    "title": "Token Status",
     "icon": "/icon.png",
     "popover": "/",
     "height": 600,

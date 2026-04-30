@@ -5,9 +5,9 @@ import {
   getFlyingItems,
   getItemZFeet,
   isFlying,
-  NS,
 } from "./flying.js";
 import { getVisualZFeet } from "./floatAnimation.js";
+import { NS } from "./statusModel.js";
 
 export const LOCAL_SHADOW_NS = `${NS}-local`;
 const SHADOW_ID_PREFIX = `${NS}/shadow/`;
