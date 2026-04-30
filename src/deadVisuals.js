@@ -6,6 +6,7 @@ import { DEAD_STATUS_ID, NS } from "./statusModel.js";
 export const LOCAL_DEAD_NS = `${NS}-local-dead`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
 const DEAD_ANIMATION_DURATION_MS = 480;
+const DEAD_SPLAT_SIZE_MULTIPLIER = 3;
 const BLOOD_GRID = {
   dpi: 150,
   offset: { x: 0, y: 0 },
@@ -84,8 +85,8 @@ function getDeadVisualSize(item, bounds, now = Date.now()) {
   const scale = getDeadBoundsScale(item, now);
 
   return {
-    width: baseWidth * scale,
-    height: baseHeight * scale,
+    width: baseWidth * scale * DEAD_SPLAT_SIZE_MULTIPLIER,
+    height: baseHeight * scale * DEAD_SPLAT_SIZE_MULTIPLIER,
   };
 }
 
