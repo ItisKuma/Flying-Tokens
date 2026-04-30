@@ -10,6 +10,7 @@ const BLOOD_GRID = {
   dpi: 150,
   offset: { x: 0, y: 0 },
 };
+const EXTENSION_ORIGIN = globalThis.location?.origin ?? "";
 const BLOOD_SPLAT_IDS = [
   "blood_splat_01.png",
   "blood_splat_02.png",
@@ -47,9 +48,12 @@ function getDeterministicSplatFile(itemId) {
 
 function getBloodImage(itemId) {
   const file = getDeterministicSplatFile(itemId);
+  const url = EXTENSION_ORIGIN
+    ? new URL(`/blood-splats/${file}`, EXTENSION_ORIGIN).toString()
+    : `/blood-splats/${file}`;
 
   return {
-    url: `/blood-splats/${file}`,
+    url,
     width: 512,
     height: 512,
     mime: "image/png",
