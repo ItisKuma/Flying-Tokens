@@ -1,35 +1,61 @@
-import OBR, { buildShape } from "@owlbear-rodeo/sdk";
+import OBR, { buildImage } from "@owlbear-rodeo/sdk";
 import { getFlyingItems } from "./flying.js";
-import { getFloatAnimationAmplitude, getTokenPhaseOffset, isFloatAnimationEnabled } from "./floatAnimation.js";
+import {
+  FLOAT_ANIMATION_CYCLE_MS,
+  getFloatAnimationAmplitude,
+  getTokenPhaseOffset,
+  isFloatAnimationEnabled,
+} from "./floatAnimation.js";
 import { NS } from "./statusModel.js";
 
-export const LOCAL_FLOAT_EFFECT_NS = `${NS}-local-float`;
-const FLOAT_EFFECT_ID_PREFIX = `${NS}/float-effect/`;
+export const FLOAT_VISUAL_NS = `${NS}/float-visual`;
+const LEGACY_LOCAL_FLOAT_EFFECT_NS = `${NS}-local-float`;
+const FLOAT_VISUAL_ID_PREFIX = `${NS}/float-visual/`;
+const FLOAT_AURA_GRID = {
+  dpi: 150,
+  offset: { x: 0, y: 0 },
+};
+const FLOAT_AURA_IMAGE = {
+  url: globalThis.location?.origin
+    ? new URL("/flying-aura.svg", globalThis.location.origin).toString()
+    : "/flying-aura.svg",
+  width: 512,
+  height: 512,
+  mime: "image/svg+xml",
+};
 
-function getFloatEffectId(itemId) {
-  return `${FLOAT_EFFECT_ID_PREFIX}${itemId}`;
+let cachedRolePromise = null;
+
+function getFloatVisualId(itemId) {
+  return `${FLOAT_VISUAL_ID_PREFIX}${itemId}`;
+}
+
+async function canManageFloatVisuals() {
+  cachedRolePromise ??= OBR.player.getRole();
+  return (await cachedRolePromise) === "GM";
+}
+
+function isManagedFloatVisual(item) {
+  return Boolean(item?.metadata?.[FLOAT_VISUAL_NS]?.effectFor);
 }
 
 function getPulseFactor(item, now = performance.now()) {
-  const phase = (now / 1000) * 2.4 + getTokenPhaseOffset(item);
+  const phase =
+    ((now % FLOAT_ANIMATION_CYCLE_MS) / FLOAT_ANIMATION_CYCLE_MS) * Math.PI * 2 +
+    getTokenPhaseOffset(item);
   return (Math.sin(phase) + 1) * 0.5;
 }
 
-function getRingScale(item, now = performance.now()) {
+function getAuraScale(item, now = performance.now()) {
   const pulse = getPulseFactor(item, now);
   const amplitude = getFloatAnimationAmplitude();
-  return 1.02 + pulse * (0.04 + amplitude * 0.01);
+  return 1.06 + pulse * (0.04 + amplitude * 0.008);
 }
 
-function getRingStrokeOpacity(item, now = performance.now()) {
-  const pulse = getPulseFactor(item, now);
-  return 0.18 + pulse * 0.18;
-}
-
-function getRingSize(bounds, item, now = performance.now()) {
+function getAuraSize(bounds, item, now = performance.now()) {
   const width = Number(bounds?.width ?? item?.image?.width ?? item?.shape?.width ?? item?.width ?? 100);
   const height = Number(bounds?.height ?? item?.image?.height ?? item?.shape?.height ?? item?.height ?? 100);
-  const scale = getRingScale(item, now);
+  const scale = getAuraScale(item, now);
 
   return {
     width: width * scale,
@@ -37,28 +63,21 @@ function getRingSize(bounds, item, now = performance.now()) {
   };
 }
 
-function buildLocalFloatEffect(item, bounds, now = performance.now()) {
-  const size = getRingSize(bounds, item, now);
+function buildFloatVisual(item, bounds, now = performance.now()) {
+  const size = getAuraSize(bounds, item, now);
   const center = bounds?.center ?? item.position ?? { x: 0, y: 0 };
 
-  return buildShape()
-    .id(getFloatEffectId(item.id))
-    .name("Float Pulse")
-    .shapeType("CIRCLE")
-    .width(size.width)
-    .height(size.height)
+  return buildImage(FLOAT_AURA_IMAGE, FLOAT_AURA_GRID)
+    .id(getFloatVisualId(item.id))
+    .name("Flying Aura")
     .position(center)
-    .rotation(0)
-    .fillOpacity(0)
-    .strokeColor("#ffe4a3")
-    .strokeOpacity(getRingStrokeOpacity(item, now))
-    .strokeWidth(10)
-    .layer("ATTACHMENT")
+    .scale({ x: size.width / FLOAT_AURA_IMAGE.width, y: size.height / FLOAT_AURA_IMAGE.height })
+    .layer("CHARACTER")
     .locked(true)
     .disableHit(true)
     .disableAutoZIndex(true)
     .metadata({
-      [LOCAL_FLOAT_EFFECT_NS]: {
+      [FLOAT_VISUAL_NS]: {
         effectFor: item.id,
       },
     })
@@ -66,44 +85,50 @@ function buildLocalFloatEffect(item, bounds, now = performance.now()) {
 }
 
 export async function clearLocalFloatEffects() {
-  const localItems = await OBR.scene.local.getItems(
-    (item) => item?.metadata?.[LOCAL_FLOAT_EFFECT_NS]?.effectFor,
+  const legacyLocalItems = await OBR.scene.local.getItems(
+    (item) => item?.metadata?.[LEGACY_LOCAL_FLOAT_EFFECT_NS]?.effectFor,
   );
 
-  if (localItems.length === 0) return;
-  await OBR.scene.local.deleteItems(localItems.map((item) => item.id));
+  if (legacyLocalItems.length > 0) {
+    await OBR.scene.local.deleteItems(legacyLocalItems.map((item) => item.id));
+  }
 }
 
 export async function syncLocalFloatEffects(items) {
-  const localItems = await OBR.scene.local.getItems(
-    (item) => item?.metadata?.[LOCAL_FLOAT_EFFECT_NS]?.effectFor,
+  await clearLocalFloatEffects();
+
+  if (!(await canManageFloatVisuals())) return;
+
+  const sceneItems = await OBR.scene.items.getItems(
+    (item) => item?.metadata?.[FLOAT_VISUAL_NS]?.effectFor,
   );
 
   if (!isFloatAnimationEnabled()) {
-    if (localItems.length > 0) {
-      await OBR.scene.local.deleteItems(localItems.map((item) => item.id));
+    if (sceneItems.length > 0) {
+      await OBR.scene.items.deleteItems(sceneItems.map((item) => item.id));
     }
     return;
   }
 
-  const flyingItems = getFlyingItems(items);
+  const sourceItems = items.filter((item) => !isManagedFloatVisual(item));
+  const flyingItems = getFlyingItems(sourceItems);
   const flyingById = new Map(flyingItems.map((item) => [item.id, item]));
-  const desiredEffectIds = new Set(flyingItems.map((item) => getFloatEffectId(item.id)));
+  const desiredEffectIds = new Set(flyingItems.map((item) => getFloatVisualId(item.id)));
 
-  const itemIdsToDelete = localItems
-    .filter((localItem) => {
-      const ownerId = localItem.metadata?.[LOCAL_FLOAT_EFFECT_NS]?.effectFor;
+  const itemIdsToDelete = sceneItems
+    .filter((sceneItem) => {
+      const ownerId = sceneItem.metadata?.[FLOAT_VISUAL_NS]?.effectFor;
       if (!ownerId) return false;
       if (!flyingById.has(ownerId)) return true;
-      return !desiredEffectIds.has(localItem.id);
+      return !desiredEffectIds.has(sceneItem.id);
     })
-    .map((localItem) => localItem.id);
+    .map((sceneItem) => sceneItem.id);
 
   if (itemIdsToDelete.length > 0) {
-    await OBR.scene.local.deleteItems(itemIdsToDelete);
+    await OBR.scene.items.deleteItems(itemIdsToDelete);
   }
 
-  const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
+  const sceneItemsById = new Map(sceneItems.map((sceneItem) => [sceneItem.id, sceneItem]));
   const itemsToAdd = [];
   const boundsById = new Map();
   const now = performance.now();
@@ -118,36 +143,38 @@ export async function syncLocalFloatEffects(items) {
   }
 
   for (const item of flyingItems) {
-    const effect = buildLocalFloatEffect(item, boundsById.get(item.id), now);
-    const existingEffect = localItemsById.get(effect.id);
+    const effect = buildFloatVisual(item, boundsById.get(item.id), now);
+    const existingEffect = sceneItemsById.get(effect.id);
+
+    effect.zIndex = Number(item.zIndex ?? 0) - 0.05;
 
     if (!existingEffect || existingEffect.type !== effect.type) {
       if (existingEffect?.id) {
-        await OBR.scene.local.deleteItems([existingEffect.id]);
+        await OBR.scene.items.deleteItems([existingEffect.id]);
       }
       itemsToAdd.push(effect);
       continue;
     }
 
-    await OBR.scene.local.updateItems([effect.id], (items) => {
-      for (const localItem of items) {
-        localItem.position = effect.position;
-        localItem.layer = effect.layer;
-        localItem.locked = effect.locked;
-        localItem.visible = effect.visible;
-        localItem.disableHit = effect.disableHit;
-        localItem.disableAutoZIndex = effect.disableAutoZIndex;
-        localItem.metadata = effect.metadata;
-        localItem.width = effect.width;
-        localItem.height = effect.height;
-        localItem.rotation = effect.rotation;
-        localItem.style = effect.style;
-        localItem.shapeType = effect.shapeType;
+    await OBR.scene.items.updateItems([effect.id], (draftItems) => {
+      for (const draftItem of draftItems) {
+        draftItem.position = effect.position;
+        draftItem.layer = effect.layer;
+        draftItem.locked = effect.locked;
+        draftItem.visible = effect.visible;
+        draftItem.disableHit = effect.disableHit;
+        draftItem.disableAutoZIndex = effect.disableAutoZIndex;
+        draftItem.metadata = effect.metadata;
+        draftItem.rotation = effect.rotation;
+        draftItem.scale = effect.scale;
+        draftItem.image = effect.image;
+        draftItem.grid = effect.grid;
+        draftItem.zIndex = effect.zIndex;
       }
     });
   }
 
   if (itemsToAdd.length > 0) {
-    await OBR.scene.local.addItems(itemsToAdd);
+    await OBR.scene.items.addItems(itemsToAdd);
   }
 }

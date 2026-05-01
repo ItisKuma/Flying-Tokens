@@ -6,7 +6,7 @@ import {
 } from "./deadVisuals.js";
 import { isFloatAnimationEnabled } from "./floatAnimation.js";
 import { setupContextMenu } from "./contextMenu.js";
-import { clearLocalFloatEffects } from "./floatEffect.js";
+import { clearLocalFloatEffects, syncLocalFloatEffects } from "./floatEffect.js";
 import { syncGifPrototypes } from "./gifPrototype.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
 import {
@@ -52,6 +52,7 @@ async function refreshItems() {
   }
 
   await syncLocalDeadVisuals(state.items);
+  await syncLocalFloatEffects(state.items);
   await syncLocalShadows(state.items);
 }
 
@@ -84,6 +85,7 @@ async function runAnimationTick() {
   }
 
   if (shouldAnimateFloat) {
+    await syncLocalFloatEffects(state.items);
     await syncLocalShadows(state.items);
   }
 }
@@ -121,6 +123,7 @@ OBR.onReady(() => {
       .then(async () => {
         state.items = await OBR.scene.items.getItems();
         await syncLocalDeadVisuals(state.items);
+        await syncLocalFloatEffects(state.items);
         await syncLocalShadows(state.items);
       });
   });
@@ -135,6 +138,7 @@ OBR.onReady(() => {
       .then(async () => {
         state.items = await OBR.scene.items.getItems();
         await syncLocalDeadVisuals(state.items);
+        await syncLocalFloatEffects(state.items);
         await syncLocalShadows(state.items);
       });
   });
