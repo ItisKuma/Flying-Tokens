@@ -1,4 +1,4 @@
-import { NS } from "./flying.js";
+import { NS } from "./statusModel.js";
 
 const LEADER_STORAGE_KEY = `${NS}/animation-leader`;
 const LEADER_HEARTBEAT_MS = 500;

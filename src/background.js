@@ -1,5 +1,9 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { clearLocalDeadVisuals, syncLocalDeadVisuals } from "./deadVisuals.js";
+import {
+  clearLocalDeadVisuals,
+  hasAnimatingDeadVisuals,
+  syncLocalDeadVisuals,
+} from "./deadVisuals.js";
 import { isFloatAnimationEnabled } from "./floatAnimation.js";
 import { setupContextMenu } from "./contextMenu.js";
 import { clearLocalFloatEffects } from "./floatEffect.js";
@@ -52,19 +56,36 @@ async function refreshItems() {
 }
 
 async function runAnimationTick() {
-  if (!state.sceneReady || !isFloatAnimationEnabled()) {
+  if (!state.sceneReady) {
+    return;
+  }
+
+  const shouldAnimateDead = hasAnimatingDeadVisuals(state.items);
+  const shouldAnimateFloat = isFloatAnimationEnabled();
+
+  if (!shouldAnimateDead && !shouldAnimateFloat) {
     return;
   }
 
   if (state.lightDragActive) {
-    await syncLocalDeadVisuals(state.items);
+    if (shouldAnimateDead) {
+      await syncLocalDeadVisuals(state.items);
+    }
     return;
   }
 
-  await syncGifPrototypes(state.items);
-  state.items = await OBR.scene.items.getItems();
-  await syncLocalDeadVisuals(state.items);
-  await syncLocalShadows(state.items);
+  if (shouldAnimateFloat) {
+    await syncGifPrototypes(state.items);
+    state.items = await OBR.scene.items.getItems();
+  }
+
+  if (shouldAnimateDead) {
+    await syncLocalDeadVisuals(state.items);
+  }
+
+  if (shouldAnimateFloat) {
+    await syncLocalShadows(state.items);
+  }
 }
 
 function stopAnimationLoop() {
@@ -125,8 +146,6 @@ OBR.onReady(() => {
       state.items = [];
       stopAnimationLoop();
       clearLocalFloatEffects();
-      clearLocalDeadVisuals();
-      clearLocalShadows();
       return;
     }
 
@@ -141,7 +160,6 @@ OBR.onReady(() => {
 
     if (!ready) {
       clearLocalFloatEffects();
-      clearLocalDeadVisuals();
       return;
     }
 

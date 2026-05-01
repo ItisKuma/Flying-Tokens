@@ -433,8 +433,6 @@ OBR.onReady(() => {
 
     if (!ready) {
       state.items = [];
-      clearLocalDeadVisuals();
-      clearLocalShadows();
       render();
       return;
     }
