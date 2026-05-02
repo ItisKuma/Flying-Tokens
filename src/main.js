@@ -9,14 +9,6 @@ import {
   setFlyingHeight,
 } from "./flying.js";
 import { getFloatAnimationAmplitude, isFloatAnimationEnabled } from "./floatAnimation.js";
-import {
-  generateGifPrototype,
-  hasActiveGifPrototype,
-  hasPendingGifPrototype,
-  restoreGifPrototype,
-  selectGifPrototype,
-  syncGifPrototypes,
-} from "./gifPrototype.js";
 import { clearLocalShadows, getLightVector, syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeSettings,
@@ -30,7 +22,6 @@ const state = {
   sceneReady: false,
   isAdjustingLight: false,
   pendingLightVector: null,
-  busyGifItemIds: new Set(),
 };
 
 function getEffectiveSettings(settings) {
@@ -64,7 +55,6 @@ function renderFlyingList() {
   emptyState.textContent = "No active token statuses in this scene.";
 
   for (const item of flyingItems) {
-    const isBusy = state.busyGifItemIds.has(item.id);
     const row = document.createElement("li");
     row.className = "flying-row";
 
@@ -97,7 +87,6 @@ function renderFlyingList() {
     slider.value = String(getItemZFeet(item));
     slider.dataset.action = "set-z";
     slider.dataset.itemId = item.id;
-    slider.disabled = isBusy;
 
     sliderWrap.append(slider);
 
@@ -109,46 +98,13 @@ function renderFlyingList() {
     downButton.textContent = "-5";
     downButton.dataset.action = "decrease-z";
     downButton.dataset.itemId = item.id;
-    downButton.disabled = isBusy;
 
     const upButton = document.createElement("button");
     upButton.type = "button";
     upButton.textContent = "+5";
     upButton.dataset.action = "increase-z";
     upButton.dataset.itemId = item.id;
-    upButton.disabled = isBusy;
-
-    const generateGifButton = document.createElement("button");
-    generateGifButton.type = "button";
-    generateGifButton.className = "flying-row__secondary-action";
-    generateGifButton.textContent = isBusy ? "Working..." : "Generate GIF";
-    generateGifButton.dataset.action = "generate-gif";
-    generateGifButton.dataset.itemId = item.id;
-    generateGifButton.disabled = isBusy;
-
-    controls.append(downButton, upButton, generateGifButton);
-
-    if (hasPendingGifPrototype(item) || hasActiveGifPrototype(item)) {
-      const useGifButton = document.createElement("button");
-      useGifButton.type = "button";
-      useGifButton.className = "flying-row__secondary-action";
-      useGifButton.textContent = isBusy ? "Working..." : "Link GIF";
-      useGifButton.dataset.action = "use-gif";
-      useGifButton.dataset.itemId = item.id;
-      useGifButton.disabled = isBusy;
-      controls.append(useGifButton);
-    }
-
-    if (hasActiveGifPrototype(item)) {
-      const restoreButton = document.createElement("button");
-      restoreButton.type = "button";
-      restoreButton.className = "flying-row__secondary-action";
-      restoreButton.textContent = isBusy ? "Working..." : "Restore Original";
-      restoreButton.dataset.action = "restore-gif";
-      restoreButton.dataset.itemId = item.id;
-      restoreButton.disabled = isBusy;
-      controls.append(restoreButton);
-    }
+    controls.append(downButton, upButton);
 
     row.append(info, controls, sliderWrap);
     list.append(row);
@@ -225,8 +181,6 @@ async function refreshItems() {
     throw error;
   }
 
-  await syncGifPrototypes(state.items);
-  state.items = await OBR.scene.items.getItems();
   await syncLocalDeadVisuals(state.items);
   await syncLocalShadows(state.items);
   render();
@@ -243,9 +197,8 @@ OBR.onReady(() => {
     applyRuntimeSettings(getEffectiveSettings(settings));
 
     if (state.sceneReady) {
-      syncGifPrototypes(state.items)
+      Promise.resolve()
         .then(async () => {
-          state.items = await OBR.scene.items.getItems();
           await syncLocalDeadVisuals(state.items);
           await syncLocalShadows(state.items);
         })
@@ -265,32 +218,6 @@ OBR.onReady(() => {
       const item = state.items.find((candidate) => candidate.id === itemId);
 
       if (!item || !isFlying(item)) return;
-
-      if (
-        button.dataset.action === "generate-gif" ||
-        button.dataset.action === "use-gif" ||
-        button.dataset.action === "restore-gif"
-      ) {
-        state.busyGifItemIds.add(itemId);
-        render();
-
-        try {
-          if (button.dataset.action === "generate-gif") {
-            await generateGifPrototype(item);
-          } else if (button.dataset.action === "use-gif") {
-            await selectGifPrototype(item);
-          } else {
-            await restoreGifPrototype(itemId);
-          }
-        } catch (error) {
-          console.error("Token Status GIF prototype error", error);
-        } finally {
-          state.busyGifItemIds.delete(itemId);
-        }
-
-        await refreshItems();
-        return;
-      }
 
       const delta = button.dataset.action === "increase-z" ? Z_STEP_FEET : -Z_STEP_FEET;
       await setFlyingHeight(item.id, getItemZFeet(item) + delta);
@@ -419,9 +346,8 @@ OBR.onReady(() => {
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
-    syncGifPrototypes(state.items)
+    Promise.resolve()
       .then(async () => {
-        state.items = await OBR.scene.items.getItems();
         await syncLocalDeadVisuals(state.items);
         await syncLocalShadows(state.items);
       })

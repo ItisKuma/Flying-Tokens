@@ -200,16 +200,11 @@ export async function toggleFlyingForItems(items) {
 
           const baseZIndex = Number(currentData.baseZIndex ?? i.zIndex ?? 0);
           const baseScale = currentData.baseScale ?? { x: 1, y: 1 };
-          const prototypeData = currentData.gifPrototype;
           i.zIndex = baseZIndex;
           i.scale = baseScale;
           i.disableAutoZIndex = false;
           i.text = cloneJson(currentData.baseText) ?? i.text;
           i.textItemType = currentData.baseTextItemType ?? i.textItemType ?? "LABEL";
-          if (prototypeData?.originalImage) {
-            i.image = cloneJson(prototypeData.originalImage);
-            i.grid = cloneJson(prototypeData.originalGrid);
-          }
           removeItemStatusData(i, FLYING_STATUS_ID);
         }
       });

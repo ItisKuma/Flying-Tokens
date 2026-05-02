@@ -7,7 +7,6 @@ import {
 import { isFloatAnimationEnabled } from "./floatAnimation.js";
 import { setupContextMenu } from "./contextMenu.js";
 import { clearLocalFloatEffects, syncLocalFloatEffects } from "./floatEffect.js";
-import { syncGifPrototypes } from "./gifPrototype.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeSettings,
@@ -43,9 +42,6 @@ async function refreshItems() {
     throw error;
   }
 
-  await syncGifPrototypes(state.items);
-  state.items = await OBR.scene.items.getItems();
-
   if (state.lightDragActive) {
     await syncLocalDeadVisuals(state.items);
     return;
@@ -73,11 +69,6 @@ async function runAnimationTick() {
       await syncLocalDeadVisuals(state.items);
     }
     return;
-  }
-
-  if (shouldAnimateFloat) {
-    await syncGifPrototypes(state.items);
-    state.items = await OBR.scene.items.getItems();
   }
 
   if (shouldAnimateDead) {
@@ -119,9 +110,8 @@ OBR.onReady(() => {
       return;
     }
 
-    syncGifPrototypes(state.items)
+    Promise.resolve()
       .then(async () => {
-        state.items = await OBR.scene.items.getItems();
         await syncLocalDeadVisuals(state.items);
         await syncLocalFloatEffects(state.items);
         await syncLocalShadows(state.items);
@@ -134,9 +124,8 @@ OBR.onReady(() => {
     if (!state.sceneReady) return;
     state.items = items;
     if (state.lightDragActive) return;
-    syncGifPrototypes(state.items)
+    Promise.resolve()
       .then(async () => {
-        state.items = await OBR.scene.items.getItems();
         await syncLocalDeadVisuals(state.items);
         await syncLocalFloatEffects(state.items);
         await syncLocalShadows(state.items);
