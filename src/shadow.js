@@ -12,9 +12,8 @@ export const LOCAL_SHADOW_NS = `${NS}-local-shadow`;
 const SHADOW_ID_PREFIX = `${NS}/shadow/`;
 const FIXED_LIGHT_VECTOR = { x: -1, y: -1 };
 const SHADOW_LAYER_DEFS = [
-  { key: "outer", zOffset: -0.12, opacityFactor: 0.3, spreadBase: 0.28, spreadSoftness: 0.32 },
-  { key: "mid", zOffset: -0.11, opacityFactor: 0.55, spreadBase: 0.14, spreadSoftness: 0.18 },
-  { key: "core", zOffset: -0.1, opacityFactor: 0.85, spreadBase: 0.02, spreadSoftness: 0.08 },
+  { key: "outer", zOffset: -0.11, opacityFactor: 0.42, spreadBase: 0, spreadSoftness: 0 },
+  { key: "core", zOffset: -0.1, opacityFactor: 1, spreadBase: -0.0526315789, spreadSoftness: 0 },
 ];
 
 const DEFAULT_SHADOW_SETTINGS = {
@@ -25,8 +24,8 @@ const DEFAULT_SHADOW_SETTINGS = {
   offsetStrength: 90,
   offsetZRange: 150,
   yOffsetRatio: 0.02,
-  opacity: 0.3,
-  softness: 0.55,
+  opacity: 0.6,
+  softness: 0,
 };
 
 let currentShadowSettings = { ...DEFAULT_SHADOW_SETTINGS };
