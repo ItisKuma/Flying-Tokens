@@ -5,6 +5,11 @@ import {
 } from "./deadVisuals.js";
 import { setupContextMenu } from "./contextMenu.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
+import {
+  applyRuntimeShadowSettings,
+  getRoomShadowSettings,
+  subscribeToRoomShadowSettings,
+} from "./shadowSettings.js";
 
 const DEAD_ANIMATION_TICK_MS = 120;
 
@@ -68,6 +73,18 @@ function startAnimationLoop() {
 OBR.onReady(() => {
   setupContextMenu();
 
+  subscribeToRoomShadowSettings((settings) => {
+    applyRuntimeShadowSettings(settings);
+
+    if (!state.sceneReady) {
+      return;
+    }
+
+    Promise.resolve().then(async () => {
+      await syncLocalShadows(state.items);
+    });
+  });
+
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
@@ -87,6 +104,7 @@ OBR.onReady(() => {
       return;
     }
 
+    applyRuntimeShadowSettings(await getRoomShadowSettings());
     await refreshItems();
     startAnimationLoop();
   });
@@ -99,6 +117,7 @@ OBR.onReady(() => {
       return;
     }
 
+    applyRuntimeShadowSettings(await getRoomShadowSettings());
     await refreshItems();
     startAnimationLoop();
   });

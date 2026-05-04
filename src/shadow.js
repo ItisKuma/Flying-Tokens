@@ -11,37 +11,87 @@ import { NS } from "./statusModel.js";
 export const LOCAL_SHADOW_NS = `${NS}-local-shadow`;
 const SHADOW_ID_PREFIX = `${NS}/shadow/`;
 const FIXED_LIGHT_VECTOR = { x: -1, y: -1 };
-const SHADOW_SCALE_AT_5_FT = 0.95;
-const SHADOW_SCALE_PER_5_FEET = 0.01;
-const SHADOW_MIN_SCALE = 0.75;
-const SHADOW_Y_OFFSET_RATIO = 0.02;
 const SHADOW_GRID = {
   dpi: 150,
   offset: { x: 0, y: 0 },
 };
-const SHADOW_IMAGE = {
-  url: globalThis.location?.origin
-    ? new URL("/shadow.svg", globalThis.location.origin).toString()
-    : "/shadow.svg",
-  width: 512,
-  height: 512,
-  mime: "image/svg+xml",
+
+const DEFAULT_SHADOW_SETTINGS = {
+  widthScaleAt5Ft: 0.95,
+  heightScaleAt5Ft: 0.95,
+  scaleLossPer5Ft: 0.01,
+  minScale: 0.75,
+  offsetStrength: 90,
+  offsetZRange: 150,
+  yOffsetRatio: 0.02,
+  opacity: 0.3,
+  softness: 0.55,
 };
+
+const SHADOW_IMAGE_SIZE = 512;
+let currentShadowSettings = { ...DEFAULT_SHADOW_SETTINGS };
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeNumber(value, fallback) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : fallback;
+}
+
+export function normalizeShadowSettings(rawSettings) {
+  return {
+    widthScaleAt5Ft: clamp(normalizeNumber(rawSettings?.widthScaleAt5Ft, DEFAULT_SHADOW_SETTINGS.widthScaleAt5Ft), 0.2, 2),
+    heightScaleAt5Ft: clamp(normalizeNumber(rawSettings?.heightScaleAt5Ft, DEFAULT_SHADOW_SETTINGS.heightScaleAt5Ft), 0.2, 2),
+    scaleLossPer5Ft: clamp(normalizeNumber(rawSettings?.scaleLossPer5Ft, DEFAULT_SHADOW_SETTINGS.scaleLossPer5Ft), -0.1, 0.1),
+    minScale: clamp(normalizeNumber(rawSettings?.minScale, DEFAULT_SHADOW_SETTINGS.minScale), 0.1, 2),
+    offsetStrength: clamp(normalizeNumber(rawSettings?.offsetStrength, DEFAULT_SHADOW_SETTINGS.offsetStrength), 0, 300),
+    offsetZRange: clamp(normalizeNumber(rawSettings?.offsetZRange, DEFAULT_SHADOW_SETTINGS.offsetZRange), 5, 500),
+    yOffsetRatio: clamp(normalizeNumber(rawSettings?.yOffsetRatio, DEFAULT_SHADOW_SETTINGS.yOffsetRatio), -0.5, 0.5),
+    opacity: clamp(normalizeNumber(rawSettings?.opacity, DEFAULT_SHADOW_SETTINGS.opacity), 0, 1),
+    softness: clamp(normalizeNumber(rawSettings?.softness, DEFAULT_SHADOW_SETTINGS.softness), 0, 1),
+  };
+}
+
+export function getShadowSettings() {
+  return { ...currentShadowSettings };
+}
+
+export function applyShadowSettings(settings) {
+  currentShadowSettings = normalizeShadowSettings(settings);
+  return getShadowSettings();
+}
 
 function getShadowId(itemId) {
   return `${SHADOW_ID_PREFIX}${itemId}`;
 }
 
+function buildShadowImage(settings) {
+  const softness = settings.softness;
+  const innerStop = 15 + (1 - softness) * 45;
+  const midStop = innerStop + 12 + softness * 18;
+  const midOpacity = settings.opacity * (0.45 + (1 - softness) * 0.25);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SHADOW_IMAGE_SIZE}" height="${SHADOW_IMAGE_SIZE}" viewBox="0 0 ${SHADOW_IMAGE_SIZE} ${SHADOW_IMAGE_SIZE}"><defs><radialGradient id="shadowGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#000000" stop-opacity="${settings.opacity.toFixed(3)}"/><stop offset="${innerStop.toFixed(2)}%" stop-color="#000000" stop-opacity="${(settings.opacity * 0.82).toFixed(3)}"/><stop offset="${midStop.toFixed(2)}%" stop-color="#000000" stop-opacity="${midOpacity.toFixed(3)}"/><stop offset="100%" stop-color="#000000" stop-opacity="0"/></radialGradient></defs><ellipse cx="${SHADOW_IMAGE_SIZE / 2}" cy="${SHADOW_IMAGE_SIZE / 2}" rx="${SHADOW_IMAGE_SIZE / 2 - 10}" ry="${SHADOW_IMAGE_SIZE / 2 - 10}" fill="url(#shadowGradient)"/></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+    width: SHADOW_IMAGE_SIZE,
+    height: SHADOW_IMAGE_SIZE,
+    mime: "image/svg+xml",
+  };
+}
+
 function getShadowOffset(item) {
+  const settings = currentShadowSettings;
   const zFeet = getItemZFeet(item);
-  const normalizedHeight = zFeet / 150;
+  const normalizedHeight = zFeet / settings.offsetZRange;
   const directionLength = Math.hypot(FIXED_LIGHT_VECTOR.x, FIXED_LIGHT_VECTOR.y);
   const direction = {
     x: FIXED_LIGHT_VECTOR.x / directionLength,
     y: FIXED_LIGHT_VECTOR.y / directionLength,
   };
-  const baseMagnitudeX = normalizedHeight * 90;
-  const baseMagnitudeY = normalizedHeight * 90;
+  const baseMagnitudeX = normalizedHeight * settings.offsetStrength;
+  const baseMagnitudeY = normalizedHeight * settings.offsetStrength;
   const shadowDirection = {
     x: -direction.x,
     y: -direction.y,
@@ -54,34 +104,41 @@ function getShadowOffset(item) {
 }
 
 function getShadowScale(zFeet) {
+  const settings = currentShadowSettings;
   const stepsAboveBase = Math.max(0, (zFeet - Z_STEP_FEET) / Z_STEP_FEET);
   return Math.max(
-    SHADOW_MIN_SCALE,
-    SHADOW_SCALE_AT_5_FT - stepsAboveBase * SHADOW_SCALE_PER_5_FEET,
+    settings.minScale,
+    1 - (1 - settings.widthScaleAt5Ft) - stepsAboveBase * settings.scaleLossPer5Ft,
   );
 }
 
 function getTokenSize(item, bounds) {
+  const settings = currentShadowSettings;
   const width = Number(bounds?.width ?? item?.image?.width ?? item?.shape?.width ?? item?.width ?? 100);
   const height = Number(bounds?.height ?? item?.image?.height ?? item?.shape?.height ?? item?.height ?? 100);
   const zFeet = getItemZFeet(item);
   const flyingTokenScaleMultiplier = 1 + (zFeet / Z_STEP_FEET) * SCALE_PER_5_FEET;
   const baseWidth = Math.abs(width / flyingTokenScaleMultiplier);
   const baseHeight = Math.abs(height / flyingTokenScaleMultiplier);
-  const shadowScale = getShadowScale(zFeet);
+  const widthScale = getShadowScale(zFeet);
+  const heightScale = Math.max(
+    settings.minScale,
+    settings.heightScaleAt5Ft - Math.max(0, (zFeet - Z_STEP_FEET) / Z_STEP_FEET) * settings.scaleLossPer5Ft,
+  );
 
   return {
-    width: baseWidth * shadowScale,
-    height: baseHeight * shadowScale,
+    width: baseWidth * widthScale,
+    height: baseHeight * heightScale,
   };
 }
 
 function getShadowPosition(item, bounds, size) {
+  const settings = currentShadowSettings;
   const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
   const offset = getShadowOffset(item);
   return {
     x: Number(center.x ?? 0) + offset.x,
-    y: Number(center.y ?? 0) + offset.y + size.height * SHADOW_Y_OFFSET_RATIO,
+    y: Number(center.y ?? 0) + offset.y + size.height * settings.yOffsetRatio,
   };
 }
 
@@ -108,11 +165,12 @@ function getShadowZIndex(owner, allItems) {
 
 function buildLocalShadow(item, allItems, bounds) {
   const size = getTokenSize(item, bounds);
-  const shadow = buildImage(SHADOW_IMAGE, SHADOW_GRID)
+  const shadowImage = buildShadowImage(currentShadowSettings);
+  const shadow = buildImage(shadowImage, SHADOW_GRID)
     .id(getShadowId(item.id))
     .name("Flying Shadow")
     .position(getShadowPosition(item, bounds, size))
-    .scale({ x: size.width / SHADOW_IMAGE.width, y: size.height / SHADOW_IMAGE.height })
+    .scale({ x: size.width / shadowImage.width, y: size.height / shadowImage.height })
     .attachedTo(item.id)
     .layer("CHARACTER")
     .locked(true)

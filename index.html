@@ -204,6 +204,29 @@
         background: rgba(101, 124, 255, 0.32);
       }
 
+      .shadow-controls {
+        display: grid;
+        gap: 12px;
+      }
+
+      .shadow-control {
+        display: grid;
+        gap: 6px;
+      }
+
+      .shadow-control__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        font-size: 13px;
+      }
+
+      .shadow-control__value {
+        color: #ffd978;
+        font-weight: 700;
+      }
+
       .flying-row__secondary-action {
         min-width: 68px;
       }
@@ -212,6 +235,12 @@
   </head>
   <body>
     <main>
+      <section class="stack">
+        <h2>Shadow Tuning</h2>
+        <p>Preview shadow shape, offset, blur, and transparency live before choosing final values.</p>
+        <div id="shadow-controls" class="shadow-controls"></div>
+      </section>
+
       <section class="stack">
         <h2>Token Status</h2>
         <p id="flying-empty">No active token statuses in this scene.</p>

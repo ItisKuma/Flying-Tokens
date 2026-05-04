@@ -9,11 +9,29 @@ import {
   setFlyingHeight,
 } from "./flying.js";
 import { syncLocalShadows } from "./shadow.js";
+import {
+  applyRuntimeShadowSettings,
+  getRoomShadowSettings,
+  subscribeToRoomShadowSettings,
+  updateRoomShadowSettings,
+} from "./shadowSettings.js";
 
 const state = {
   items: [],
   sceneReady: false,
 };
+
+const SHADOW_CONTROL_DEFINITIONS = [
+  { key: "widthScaleAt5Ft", label: "Width Scale @ 5 ft", min: 0.2, max: 2, step: 0.01 },
+  { key: "heightScaleAt5Ft", label: "Height Scale @ 5 ft", min: 0.2, max: 2, step: 0.01 },
+  { key: "scaleLossPer5Ft", label: "Scale Loss / 5 ft", min: -0.1, max: 0.1, step: 0.001 },
+  { key: "minScale", label: "Minimum Scale", min: 0.1, max: 2, step: 0.01 },
+  { key: "offsetStrength", label: "Offset Strength", min: 0, max: 300, step: 1 },
+  { key: "offsetZRange", label: "Offset Z Range", min: 5, max: 500, step: 1 },
+  { key: "yOffsetRatio", label: "Vertical Offset", min: -0.5, max: 0.5, step: 0.01 },
+  { key: "opacity", label: "Opacity", min: 0, max: 1, step: 0.01 },
+  { key: "softness", label: "Blur / Softness", min: 0, max: 1, step: 0.01 },
+];
 
 function renderFlyingList() {
   const list = document.getElementById("flying-list");
@@ -92,7 +110,55 @@ function renderFlyingList() {
 }
 
 function render() {
+  renderShadowControls();
   renderFlyingList();
+}
+
+function formatShadowValue(definition, value) {
+  const numericValue = Number(value);
+  if (definition.step < 0.01) {
+    return numericValue.toFixed(3);
+  }
+  if (definition.step < 0.1) {
+    return numericValue.toFixed(2);
+  }
+  return numericValue.toFixed(0);
+}
+
+function renderShadowControls() {
+  const list = document.getElementById("shadow-controls");
+  if (!list) return;
+
+  const settings = applyRuntimeShadowSettings();
+  list.innerHTML = "";
+
+  for (const definition of SHADOW_CONTROL_DEFINITIONS) {
+    const row = document.createElement("label");
+    row.className = "shadow-control";
+
+    const header = document.createElement("div");
+    header.className = "shadow-control__header";
+
+    const name = document.createElement("span");
+    name.textContent = definition.label;
+
+    const value = document.createElement("span");
+    value.className = "shadow-control__value";
+    value.textContent = formatShadowValue(definition, settings[definition.key]);
+
+    const slider = document.createElement("input");
+    slider.className = "ui-slider";
+    slider.type = "range";
+    slider.min = String(definition.min);
+    slider.max = String(definition.max);
+    slider.step = String(definition.step);
+    slider.value = String(settings[definition.key]);
+    slider.dataset.shadowKey = definition.key;
+
+    header.append(name, value);
+    row.append(header, slider);
+    list.append(row);
+  }
 }
 
 async function refreshItems() {
@@ -122,6 +188,22 @@ async function refreshItems() {
 
 OBR.onReady(() => {
   const list = document.getElementById("flying-list");
+  const shadowControls = document.getElementById("shadow-controls");
+
+  subscribeToRoomShadowSettings((settings) => {
+    applyRuntimeShadowSettings(settings);
+
+    if (state.sceneReady) {
+      Promise.resolve()
+        .then(async () => {
+          await syncLocalShadows(state.items);
+        })
+        .then(render);
+      return;
+    }
+
+    render();
+  });
 
   if (list) {
     list.addEventListener("click", async (event) => {
@@ -165,6 +247,33 @@ OBR.onReady(() => {
     });
   }
 
+  if (shadowControls) {
+    shadowControls.addEventListener("input", async (event) => {
+      const slider = event.target.closest("input[data-shadow-key]");
+      if (!slider) return;
+
+      applyRuntimeShadowSettings({
+        ...applyRuntimeShadowSettings(),
+        [slider.dataset.shadowKey]: slider.value,
+      });
+
+      if (state.sceneReady) {
+        await syncLocalShadows(state.items);
+      }
+      render();
+    });
+
+    shadowControls.addEventListener("change", async (event) => {
+      const slider = event.target.closest("input[data-shadow-key]");
+      if (!slider) return;
+
+      await updateRoomShadowSettings({
+        [slider.dataset.shadowKey]: slider.value,
+      });
+      await refreshItems();
+    });
+  }
+
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
@@ -190,6 +299,8 @@ OBR.onReady(() => {
 
   OBR.scene.isReady().then(async (ready) => {
     state.sceneReady = ready;
+    const shadowSettings = await getRoomShadowSettings();
+    applyRuntimeShadowSettings(shadowSettings);
     render();
 
     if (!ready) return;
