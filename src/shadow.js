@@ -30,6 +30,14 @@ const DEFAULT_SHADOW_SETTINGS = {
 
 const SHADOW_IMAGE_SIZE = 512;
 let currentShadowSettings = { ...DEFAULT_SHADOW_SETTINGS };
+const STATIC_SHADOW_IMAGE = {
+  url: globalThis.location?.origin
+    ? new URL("/shadow.svg", globalThis.location.origin).toString()
+    : "/shadow.svg",
+  width: SHADOW_IMAGE_SIZE,
+  height: SHADOW_IMAGE_SIZE,
+  mime: "image/svg+xml",
+};
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -65,20 +73,6 @@ export function applyShadowSettings(settings) {
 
 function getShadowId(itemId) {
   return `${SHADOW_ID_PREFIX}${itemId}`;
-}
-
-function buildShadowImage(settings) {
-  const softness = settings.softness;
-  const innerStop = 15 + (1 - softness) * 45;
-  const midStop = innerStop + 12 + softness * 18;
-  const midOpacity = settings.opacity * (0.45 + (1 - softness) * 0.25);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SHADOW_IMAGE_SIZE}" height="${SHADOW_IMAGE_SIZE}" viewBox="0 0 ${SHADOW_IMAGE_SIZE} ${SHADOW_IMAGE_SIZE}"><defs><radialGradient id="shadowGradient" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#000000" stop-opacity="${settings.opacity.toFixed(3)}"/><stop offset="${innerStop.toFixed(2)}%" stop-color="#000000" stop-opacity="${(settings.opacity * 0.82).toFixed(3)}"/><stop offset="${midStop.toFixed(2)}%" stop-color="#000000" stop-opacity="${midOpacity.toFixed(3)}"/><stop offset="100%" stop-color="#000000" stop-opacity="0"/></radialGradient></defs><ellipse cx="${SHADOW_IMAGE_SIZE / 2}" cy="${SHADOW_IMAGE_SIZE / 2}" rx="${SHADOW_IMAGE_SIZE / 2 - 10}" ry="${SHADOW_IMAGE_SIZE / 2 - 10}" fill="url(#shadowGradient)"/></svg>`;
-  return {
-    url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
-    width: SHADOW_IMAGE_SIZE,
-    height: SHADOW_IMAGE_SIZE,
-    mime: "image/svg+xml",
-  };
 }
 
 function getShadowOffset(item) {
@@ -165,12 +159,11 @@ function getShadowZIndex(owner, allItems) {
 
 function buildLocalShadow(item, allItems, bounds) {
   const size = getTokenSize(item, bounds);
-  const shadowImage = buildShadowImage(currentShadowSettings);
-  const shadow = buildImage(shadowImage, SHADOW_GRID)
+  const shadow = buildImage(STATIC_SHADOW_IMAGE, SHADOW_GRID)
     .id(getShadowId(item.id))
     .name("Flying Shadow")
     .position(getShadowPosition(item, bounds, size))
-    .scale({ x: size.width / shadowImage.width, y: size.height / shadowImage.height })
+    .scale({ x: size.width / STATIC_SHADOW_IMAGE.width, y: size.height / STATIC_SHADOW_IMAGE.height })
     .attachedTo(item.id)
     .layer("CHARACTER")
     .locked(true)
