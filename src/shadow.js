@@ -1,4 +1,4 @@
-import OBR, { buildImage } from "@owlbear-rodeo/sdk";
+import OBR, { buildShape } from "@owlbear-rodeo/sdk";
 import {
   SCALE_PER_5_FEET,
   Z_STEP_FEET,
@@ -11,10 +11,11 @@ import { NS } from "./statusModel.js";
 export const LOCAL_SHADOW_NS = `${NS}-local-shadow`;
 const SHADOW_ID_PREFIX = `${NS}/shadow/`;
 const FIXED_LIGHT_VECTOR = { x: -1, y: -1 };
-const SHADOW_GRID = {
-  dpi: 150,
-  offset: { x: 0, y: 0 },
-};
+const SHADOW_LAYER_DEFS = [
+  { key: "outer", zOffset: -0.12, opacityFactor: 0.3, spreadBase: 0.28, spreadSoftness: 0.32 },
+  { key: "mid", zOffset: -0.11, opacityFactor: 0.55, spreadBase: 0.14, spreadSoftness: 0.18 },
+  { key: "core", zOffset: -0.1, opacityFactor: 0.85, spreadBase: 0.02, spreadSoftness: 0.08 },
+];
 
 const DEFAULT_SHADOW_SETTINGS = {
   widthScaleAt5Ft: 0.95,
@@ -28,16 +29,7 @@ const DEFAULT_SHADOW_SETTINGS = {
   softness: 0.55,
 };
 
-const SHADOW_IMAGE_SIZE = 512;
 let currentShadowSettings = { ...DEFAULT_SHADOW_SETTINGS };
-const STATIC_SHADOW_IMAGE = {
-  url: globalThis.location?.origin
-    ? new URL("/shadow.svg", globalThis.location.origin).toString()
-    : "/shadow.svg",
-  width: SHADOW_IMAGE_SIZE,
-  height: SHADOW_IMAGE_SIZE,
-  mime: "image/svg+xml",
-};
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -66,13 +58,13 @@ export function getShadowSettings() {
   return { ...currentShadowSettings };
 }
 
-export function applyShadowSettings(settings) {
+export function applyShadowSettings(settings = currentShadowSettings) {
   currentShadowSettings = normalizeShadowSettings(settings);
   return getShadowSettings();
 }
 
-function getShadowId(itemId) {
-  return `${SHADOW_ID_PREFIX}${itemId}`;
+function getShadowId(itemId, layerKey) {
+  return `${SHADOW_ID_PREFIX}${itemId}/${layerKey}`;
 }
 
 function getShadowOffset(item) {
@@ -97,12 +89,12 @@ function getShadowOffset(item) {
   };
 }
 
-function getShadowScale(zFeet) {
+function getScaleAtHeight(zFeet, baseScaleAt5Ft) {
   const settings = currentShadowSettings;
   const stepsAboveBase = Math.max(0, (zFeet - Z_STEP_FEET) / Z_STEP_FEET);
   return Math.max(
     settings.minScale,
-    1 - (1 - settings.widthScaleAt5Ft) - stepsAboveBase * settings.scaleLossPer5Ft,
+    baseScaleAt5Ft - stepsAboveBase * settings.scaleLossPer5Ft,
   );
 }
 
@@ -114,11 +106,8 @@ function getTokenSize(item, bounds) {
   const flyingTokenScaleMultiplier = 1 + (zFeet / Z_STEP_FEET) * SCALE_PER_5_FEET;
   const baseWidth = Math.abs(width / flyingTokenScaleMultiplier);
   const baseHeight = Math.abs(height / flyingTokenScaleMultiplier);
-  const widthScale = getShadowScale(zFeet);
-  const heightScale = Math.max(
-    settings.minScale,
-    settings.heightScaleAt5Ft - Math.max(0, (zFeet - Z_STEP_FEET) / Z_STEP_FEET) * settings.scaleLossPer5Ft,
-  );
+  const widthScale = getScaleAtHeight(zFeet, settings.widthScaleAt5Ft);
+  const heightScale = getScaleAtHeight(zFeet, settings.heightScaleAt5Ft);
 
   return {
     width: baseWidth * widthScale,
@@ -136,7 +125,11 @@ function getShadowPosition(item, bounds, size) {
   };
 }
 
-function getShadowZIndex(owner, allItems) {
+function getLayerSpread(layerDef, softness) {
+  return 1 + layerDef.spreadBase + softness * layerDef.spreadSoftness;
+}
+
+function getShadowZIndex(owner, allItems, layerDef) {
   const ownerZFeet = getItemZFeet(owner);
   const ownerZIndex = Number(owner.zIndex ?? 0);
   const relevantItems = allItems.filter((item) => {
@@ -147,38 +140,52 @@ function getShadowZIndex(owner, allItems) {
   });
 
   if (relevantItems.length === 0) {
-    return ownerZIndex - 0.1;
+    return ownerZIndex + layerDef.zOffset;
   }
 
   const highestRelevantZIndex = Math.max(
     ...relevantItems.map((item) => Number(item.zIndex ?? 0)),
   );
 
-  return Math.min(ownerZIndex - 0.1, highestRelevantZIndex + 0.1);
+  return Math.min(ownerZIndex + layerDef.zOffset, highestRelevantZIndex + 0.1);
 }
 
-function buildLocalShadow(item, allItems, bounds) {
+function buildLocalShadowLayers(item, allItems, bounds) {
+  const settings = currentShadowSettings;
   const size = getTokenSize(item, bounds);
-  const shadow = buildImage(STATIC_SHADOW_IMAGE, SHADOW_GRID)
-    .id(getShadowId(item.id))
-    .name("Flying Shadow")
-    .position(getShadowPosition(item, bounds, size))
-    .scale({ x: size.width / STATIC_SHADOW_IMAGE.width, y: size.height / STATIC_SHADOW_IMAGE.height })
-    .attachedTo(item.id)
-    .layer("CHARACTER")
-    .locked(true)
-    .disableHit(true)
-    .disableAutoZIndex(true)
-    .disableAttachmentBehavior(["SCALE", "ROTATION"])
-    .metadata({
-      [LOCAL_SHADOW_NS]: {
-        shadowFor: item.id,
-      },
-    })
-    .build();
+  const position = getShadowPosition(item, bounds, size);
 
-  shadow.zIndex = getShadowZIndex(item, allItems);
-  return shadow;
+  return SHADOW_LAYER_DEFS.map((layerDef) => {
+    const spread = getLayerSpread(layerDef, settings.softness);
+    const layer = buildShape()
+      .id(getShadowId(item.id, layerDef.key))
+      .name("Flying Shadow")
+      .shapeType("CIRCLE")
+      .position(position)
+      .width(size.width * spread)
+      .height(size.height * spread)
+      .fillColor("#000000")
+      .fillOpacity(settings.opacity * layerDef.opacityFactor)
+      .strokeColor("#000000")
+      .strokeOpacity(0)
+      .strokeWidth(0)
+      .attachedTo(item.id)
+      .layer("CHARACTER")
+      .locked(true)
+      .disableHit(true)
+      .disableAutoZIndex(true)
+      .disableAttachmentBehavior(["SCALE", "ROTATION"])
+      .metadata({
+        [LOCAL_SHADOW_NS]: {
+          shadowFor: item.id,
+          layerKey: layerDef.key,
+        },
+      })
+      .build();
+
+    layer.zIndex = getShadowZIndex(item, allItems, layerDef);
+    return layer;
+  });
 }
 
 export async function clearLocalShadows() {
@@ -197,7 +204,12 @@ export async function syncLocalShadows(items) {
   );
 
   const flyingById = new Map(flyingItems.map((item) => [item.id, item]));
-  const desiredShadowIds = new Set(flyingItems.map((item) => getShadowId(item.id)));
+  const desiredShadowIds = new Set(
+    flyingItems.flatMap((item) =>
+      SHADOW_LAYER_DEFS.map((layerDef) => getShadowId(item.id, layerDef.key)),
+    ),
+  );
+
   const itemIdsToDelete = localItems
     .filter((localItem) => {
       const ownerId = localItem.metadata?.[LOCAL_SHADOW_NS]?.shadowFor;
@@ -219,41 +231,45 @@ export async function syncLocalShadows(items) {
     try {
       const bounds = await OBR.scene.items.getItemBounds([item.id]);
       boundsById.set(item.id, bounds);
-    } catch (error) {
+    } catch {
       boundsById.set(item.id, null);
     }
   }
 
   for (const item of flyingItems) {
-    const shadow = buildLocalShadow(item, items, boundsById.get(item.id));
-    const existingShadow = localItemsById.get(shadow.id);
+    const shadowLayers = buildLocalShadowLayers(item, items, boundsById.get(item.id));
 
-    if (!existingShadow || existingShadow.type !== shadow.type) {
-      if (existingShadow?.id) {
-        await OBR.scene.local.deleteItems([existingShadow.id]);
+    for (const shadow of shadowLayers) {
+      const existingShadow = localItemsById.get(shadow.id);
+
+      if (!existingShadow || existingShadow.type !== shadow.type) {
+        if (existingShadow?.id) {
+          await OBR.scene.local.deleteItems([existingShadow.id]);
+        }
+        itemsToAdd.push(shadow);
+        continue;
       }
-      itemsToAdd.push(shadow);
-      continue;
+
+      await OBR.scene.local.updateItems([shadow.id], (draftItems) => {
+        for (const draftItem of draftItems) {
+          draftItem.position = shadow.position;
+          draftItem.layer = shadow.layer;
+          draftItem.locked = shadow.locked;
+          draftItem.visible = shadow.visible;
+          draftItem.disableHit = shadow.disableHit;
+          draftItem.disableAutoZIndex = shadow.disableAutoZIndex;
+          draftItem.zIndex = shadow.zIndex;
+          draftItem.metadata = shadow.metadata;
+          draftItem.rotation = shadow.rotation;
+          draftItem.attachedTo = shadow.attachedTo;
+          draftItem.disableAttachmentBehavior = shadow.disableAttachmentBehavior;
+          draftItem.width = shadow.width;
+          draftItem.height = shadow.height;
+          draftItem.shapeType = shadow.shapeType;
+          draftItem.style = shadow.style;
+        }
+      });
     }
-
-    await OBR.scene.local.updateItems([shadow.id], (items) => {
-      for (const localItem of items) {
-        localItem.position = shadow.position;
-        localItem.layer = shadow.layer;
-        localItem.locked = shadow.locked;
-        localItem.visible = shadow.visible;
-        localItem.disableHit = shadow.disableHit;
-        localItem.disableAutoZIndex = shadow.disableAutoZIndex;
-        localItem.zIndex = shadow.zIndex;
-        localItem.metadata = shadow.metadata;
-        localItem.rotation = shadow.rotation;
-        localItem.scale = shadow.scale;
-        localItem.image = shadow.image;
-        localItem.grid = shadow.grid;
-        localItem.attachedTo = shadow.attachedTo;
-        localItem.disableAttachmentBehavior = shadow.disableAttachmentBehavior;
-      }
-    });
   }
 
   if (itemsToAdd.length > 0) {
