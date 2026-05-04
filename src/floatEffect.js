@@ -55,17 +55,18 @@ function getAuraSize(bounds, item, now = performance.now()) {
 
 function buildFloatVisual(item, bounds, now = performance.now()) {
   const size = getAuraSize(bounds, item, now);
-  const center = item.position ?? bounds?.center ?? { x: 0, y: 0 };
 
   return buildImage(FLOAT_AURA_IMAGE, FLOAT_AURA_GRID)
     .id(getFloatVisualId(item.id))
     .name("Flying Aura")
-    .position(center)
+    .position({ x: 0, y: 0 })
     .scale({ x: size.width / FLOAT_AURA_IMAGE.width, y: size.height / FLOAT_AURA_IMAGE.height })
+    .attachedTo(item.id)
     .layer("CHARACTER")
     .locked(true)
     .disableHit(true)
     .disableAutoZIndex(true)
+    .disableAttachmentBehavior(["SCALE", "ROTATION"])
     .metadata({
       [LOCAL_FLOAT_EFFECT_NS]: {
         effectFor: item.id,
@@ -131,7 +132,7 @@ export async function syncLocalFloatEffects(items) {
     const effect = buildFloatVisual(item, boundsById.get(item.id), now);
     const existingEffect = sceneItemsById.get(effect.id);
 
-    effect.zIndex = Number(item.zIndex ?? 0) - 0.05;
+    effect.zIndex = Number(item.zIndex ?? 0) + 0.05;
 
     if (!existingEffect || existingEffect.type !== effect.type) {
       if (existingEffect?.id) {
@@ -155,6 +156,8 @@ export async function syncLocalFloatEffects(items) {
         draftItem.image = effect.image;
         draftItem.grid = effect.grid;
         draftItem.zIndex = effect.zIndex;
+        draftItem.attachedTo = effect.attachedTo;
+        draftItem.disableAttachmentBehavior = effect.disableAttachmentBehavior;
       }
     });
   }
