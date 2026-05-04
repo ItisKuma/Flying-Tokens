@@ -62,14 +62,12 @@ function getShadowScale(zFeet) {
 }
 
 function getTokenSize(item, bounds) {
-  const width = Number(item?.image?.width ?? item?.shape?.width ?? item?.width ?? bounds?.width ?? 100);
-  const height = Number(item?.image?.height ?? item?.shape?.height ?? item?.height ?? bounds?.height ?? 100);
-  const scaleX = Number(item?.scale?.x ?? 1);
-  const scaleY = Number(item?.scale?.y ?? 1);
+  const width = Number(bounds?.width ?? item?.image?.width ?? item?.shape?.width ?? item?.width ?? 100);
+  const height = Number(bounds?.height ?? item?.image?.height ?? item?.shape?.height ?? item?.height ?? 100);
   const zFeet = getItemZFeet(item);
   const flyingTokenScaleMultiplier = 1 + (zFeet / Z_STEP_FEET) * SCALE_PER_5_FEET;
-  const baseWidth = Math.abs((width * scaleX) / flyingTokenScaleMultiplier);
-  const baseHeight = Math.abs((height * scaleY) / flyingTokenScaleMultiplier);
+  const baseWidth = Math.abs(width / flyingTokenScaleMultiplier);
+  const baseHeight = Math.abs(height / flyingTokenScaleMultiplier);
   const shadowScale = getShadowScale(zFeet);
 
   return {
