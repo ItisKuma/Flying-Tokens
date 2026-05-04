@@ -11,8 +11,10 @@ import { NS } from "./statusModel.js";
 export const LOCAL_SHADOW_NS = `${NS}-local-shadow`;
 const SHADOW_ID_PREFIX = `${NS}/shadow/`;
 const FIXED_LIGHT_VECTOR = { x: -1, y: -1 };
-const SHADOW_SCALE = 0.98;
-const SHADOW_Y_OFFSET_RATIO = 0.08;
+const SHADOW_SCALE_AT_5_FT = 0.95;
+const SHADOW_SCALE_PER_5_FEET = 0.01;
+const SHADOW_MIN_SCALE = 0.75;
+const SHADOW_Y_OFFSET_RATIO = 0.02;
 const SHADOW_GRID = {
   dpi: 150,
   offset: { x: 0, y: 0 },
@@ -32,14 +34,14 @@ function getShadowId(itemId) {
 
 function getShadowOffset(item) {
   const zFeet = getItemZFeet(item);
-  const normalizedHeight = zFeet / 120;
+  const normalizedHeight = zFeet / 150;
   const directionLength = Math.hypot(FIXED_LIGHT_VECTOR.x, FIXED_LIGHT_VECTOR.y);
   const direction = {
     x: FIXED_LIGHT_VECTOR.x / directionLength,
     y: FIXED_LIGHT_VECTOR.y / directionLength,
   };
-  const baseMagnitudeX = normalizedHeight * 150;
-  const baseMagnitudeY = normalizedHeight * 150;
+  const baseMagnitudeX = normalizedHeight * 90;
+  const baseMagnitudeY = normalizedHeight * 90;
   const shadowDirection = {
     x: -direction.x,
     y: -direction.y,
@@ -51,6 +53,14 @@ function getShadowOffset(item) {
   };
 }
 
+function getShadowScale(zFeet) {
+  const stepsAboveBase = Math.max(0, (zFeet - Z_STEP_FEET) / Z_STEP_FEET);
+  return Math.max(
+    SHADOW_MIN_SCALE,
+    SHADOW_SCALE_AT_5_FT - stepsAboveBase * SHADOW_SCALE_PER_5_FEET,
+  );
+}
+
 function getTokenSize(item, bounds) {
   const width = Number(item?.image?.width ?? item?.shape?.width ?? item?.width ?? bounds?.width ?? 100);
   const height = Number(item?.image?.height ?? item?.shape?.height ?? item?.height ?? bounds?.height ?? 100);
@@ -60,10 +70,11 @@ function getTokenSize(item, bounds) {
   const flyingTokenScaleMultiplier = 1 + (zFeet / Z_STEP_FEET) * SCALE_PER_5_FEET;
   const baseWidth = Math.abs((width * scaleX) / flyingTokenScaleMultiplier);
   const baseHeight = Math.abs((height * scaleY) / flyingTokenScaleMultiplier);
+  const shadowScale = getShadowScale(zFeet);
 
   return {
-    width: baseWidth * SHADOW_SCALE,
-    height: baseHeight * SHADOW_SCALE,
+    width: baseWidth * shadowScale,
+    height: baseHeight * shadowScale,
   };
 }
 
