@@ -1,5 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
-import { clearLocalDeadVisuals, syncLocalDeadVisuals } from "./deadVisuals.js";
+import { syncLocalDeadVisuals } from "./deadVisuals.js";
 import {
   Z_STEP_FEET,
   getFlyingItems,
@@ -9,7 +9,7 @@ import {
   setFlyingHeight,
 } from "./flying.js";
 import { getFloatAnimationAmplitude, isFloatAnimationEnabled } from "./floatAnimation.js";
-import { clearLocalShadows, getLightVector, syncLocalShadows } from "./shadow.js";
+import { syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeSettings,
   getRoomSettings,
@@ -20,20 +20,7 @@ import {
 const state = {
   items: [],
   sceneReady: false,
-  isAdjustingLight: false,
-  pendingLightVector: null,
 };
-
-function getEffectiveSettings(settings) {
-  if (!state.isAdjustingLight || !state.pendingLightVector) {
-    return settings;
-  }
-
-  return {
-    ...settings,
-    lightVector: state.pendingLightVector,
-  };
-}
 
 function renderFlyingList() {
   const list = document.getElementById("flying-list");
@@ -111,34 +98,6 @@ function renderFlyingList() {
   }
 }
 
-function renderLightDirectionControl() {
-  const sun = document.getElementById("light-sun");
-  const centerIcon = document.getElementById("light-center-icon");
-  if (!sun) return;
-
-  const vector =
-    state.isAdjustingLight && state.pendingLightVector
-      ? state.pendingLightVector
-      : getLightVector();
-  const normalizedDistance = Math.min(1, Math.hypot(vector.x, vector.y) / 5);
-  const directionLength = Math.hypot(vector.x, vector.y);
-  const directionX = directionLength > 0 ? vector.x / directionLength : 0;
-  const directionY = directionLength > 0 ? vector.y / directionLength : 0;
-  const travelPercent = normalizedDistance * 44;
-
-  sun.style.left = `${50 + directionX * travelPercent}%`;
-  sun.style.top = `${50 + directionY * travelPercent}%`;
-
-  if (centerIcon) {
-    centerIcon.innerHTML = `
-      <svg viewBox="0 0 32 40" width="22" height="30" aria-hidden="true">
-        <circle cx="16" cy="6.5" r="4.5" fill="#e7ebff"/>
-        <path d="M16 11.5v11.5M16 15.5l-6 6M16 15.5l6 6M16 23l-5 10M16 23l5 10" stroke="#e7ebff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>
-    `;
-  }
-}
-
 function renderFloatAnimationControls() {
   const toggle = document.getElementById("float-animation-toggle");
   const amplitudeSlider = document.getElementById("float-animation-amplitude");
@@ -157,7 +116,6 @@ function renderFloatAnimationControls() {
 
 function render() {
   renderFlyingList();
-  renderLightDirectionControl();
   renderFloatAnimationControls();
 }
 
@@ -187,14 +145,12 @@ async function refreshItems() {
 }
 
 OBR.onReady(() => {
-  const lightDirection = document.getElementById("light-direction");
-  const lightSun = document.getElementById("light-sun");
   const floatAnimationToggle = document.getElementById("float-animation-toggle");
   const floatAnimationAmplitude = document.getElementById("float-animation-amplitude");
   const list = document.getElementById("flying-list");
 
   subscribeToRoomSettings((settings) => {
-    applyRuntimeSettings(getEffectiveSettings(settings));
+    applyRuntimeSettings(settings);
 
     if (state.sceneReady) {
       Promise.resolve()
@@ -248,73 +204,6 @@ OBR.onReady(() => {
 
       await setFlyingHeight(item.id, slider.value);
       await refreshItems();
-    });
-  }
-
-  if (lightDirection && lightSun) {
-    let isDraggingLight = false;
-
-    const getDraggedLightVector = (clientX, clientY) => {
-      const padRect = lightDirection.getBoundingClientRect();
-      const centerX = padRect.left + padRect.width / 2;
-      const centerY = padRect.top + padRect.height / 2;
-      const radius = Math.min(padRect.width, padRect.height) * 0.44;
-      const deltaX = ((clientX - centerX) / radius) * 5;
-      const deltaY = ((clientY - centerY) / radius) * 5;
-
-      return { x: deltaX, y: deltaY };
-    };
-
-    const previewLightDirection = async (clientX, clientY) => {
-      state.pendingLightVector = getDraggedLightVector(clientX, clientY);
-      applyRuntimeSettings({
-        lightVector: state.pendingLightVector,
-      });
-
-      if (state.sceneReady) {
-        await syncLocalShadows(state.items);
-      }
-
-      render();
-    };
-
-    lightSun.addEventListener("pointerdown", async (event) => {
-      isDraggingLight = true;
-      state.isAdjustingLight = true;
-      lightSun.setPointerCapture(event.pointerId);
-      await previewLightDirection(event.clientX, event.clientY);
-      await updateRoomSettings({ lightDragActive: true });
-    });
-
-    lightSun.addEventListener("pointermove", async (event) => {
-      if (!isDraggingLight) return;
-      await previewLightDirection(event.clientX, event.clientY);
-    });
-
-    lightSun.addEventListener("pointerup", async () => {
-      isDraggingLight = false;
-      state.isAdjustingLight = false;
-      const committedLightVector = state.pendingLightVector;
-      state.pendingLightVector = null;
-      await updateRoomSettings({ lightDragActive: false });
-      if (committedLightVector) {
-        await updateRoomSettings({
-          lightVector: committedLightVector,
-        });
-      }
-    });
-
-    lightSun.addEventListener("pointercancel", async () => {
-      isDraggingLight = false;
-      state.isAdjustingLight = false;
-      state.pendingLightVector = null;
-      await updateRoomSettings({ lightDragActive: false });
-      const settings = await getRoomSettings();
-      applyRuntimeSettings(getEffectiveSettings(settings));
-      if (state.sceneReady) {
-        await syncLocalShadows(state.items);
-      }
-      render();
     });
   }
 

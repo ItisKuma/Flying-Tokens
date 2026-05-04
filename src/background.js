@@ -19,7 +19,6 @@ const FLOAT_ANIMATION_TICK_MS = 120;
 const state = {
   items: [],
   sceneReady: false,
-  lightDragActive: false,
 };
 
 let animationIntervalId = 0;
@@ -42,11 +41,6 @@ async function refreshItems() {
     throw error;
   }
 
-  if (state.lightDragActive) {
-    await syncLocalDeadVisuals(state.items);
-    return;
-  }
-
   await syncLocalDeadVisuals(state.items);
   await syncLocalFloatEffects(state.items);
   await syncLocalShadows(state.items);
@@ -61,13 +55,6 @@ async function runAnimationTick() {
   const shouldAnimateFloat = isFloatAnimationEnabled();
 
   if (!shouldAnimateDead && !shouldAnimateFloat) {
-    return;
-  }
-
-  if (state.lightDragActive) {
-    if (shouldAnimateDead) {
-      await syncLocalDeadVisuals(state.items);
-    }
     return;
   }
 
@@ -99,14 +86,9 @@ function startAnimationLoop() {
 
 OBR.onReady(() => {
   subscribeToRoomSettings((settings) => {
-    state.lightDragActive = Boolean(settings?.lightDragActive);
     applyRuntimeSettings(settings);
 
     if (!state.sceneReady) {
-      return;
-    }
-
-    if (state.lightDragActive) {
       return;
     }
 
@@ -123,7 +105,6 @@ OBR.onReady(() => {
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
-    if (state.lightDragActive) return;
     Promise.resolve()
       .then(async () => {
         await syncLocalDeadVisuals(state.items);

@@ -208,71 +208,6 @@
         min-width: 68px;
       }
 
-      .light-control {
-        display: grid;
-        gap: 10px;
-      }
-
-      .light-control h2 {
-        font-size: 12px;
-        margin-bottom: 0;
-      }
-
-      .light-control__hint {
-        font-size: 12px;
-      }
-
-      .light-control__pad {
-        position: relative;
-        width: 50%;
-        min-width: 120px;
-        max-width: 160px;
-        aspect-ratio: 1;
-        margin: 0 auto;
-        border-radius: 999px;
-        background:
-          radial-gradient(circle at center, rgba(255,255,255,0.06), transparent 38%),
-          linear-gradient(180deg, rgba(255, 214, 102, 0.12), rgba(255,255,255,0.02));
-        border: 1px solid rgba(255,255,255,0.08);
-        touch-action: none;
-      }
-
-      .light-control__sun,
-      .light-control__center {
-        position: absolute;
-        display: grid;
-        place-items: center;
-        transform: translate(-50%, -50%);
-      }
-
-      .light-control__sun {
-        left: 16%;
-        top: 16%;
-        width: 28px;
-        height: 28px;
-        z-index: 2;
-        border-radius: 999px;
-        background:
-          radial-gradient(circle at 35% 35%, #fff6d5 0 18%, #ffe18e 19% 52%, #ffc84f 53% 100%);
-        box-shadow:
-          0 0 0 4px rgba(255, 217, 120, 0.12),
-          0 0 16px rgba(255, 200, 79, 0.32);
-        cursor: grab;
-      }
-
-      .light-control__sun:active {
-        cursor: grabbing;
-      }
-
-      .light-control__center {
-        left: 50%;
-        top: 50%;
-        z-index: 1;
-        width: 30px;
-        height: 40px;
-        color: #d7defd;
-      }
-
       .toggle-row {
         display: flex;
         align-items: center;
@@ -343,17 +278,6 @@
   </head>
   <body>
     <main>
-      <section class="light-control">
-        <h2>Light</h2>
-        <p class="light-control__hint">Drag the sun. Farther away means bigger shadow offset.</p>
-        <div id="light-direction" class="light-control__pad" aria-label="Drag the sun to set light direction">
-          <div id="light-sun" class="light-control__sun" aria-hidden="true"></div>
-          <div class="light-control__center" aria-hidden="true">
-            <span id="light-center-icon"></span>
-          </div>
-        </div>
-      </section>
-
       <section class="float-animation">
         <div class="toggle-row">
           <div>
