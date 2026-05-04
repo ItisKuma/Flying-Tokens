@@ -19,13 +19,13 @@ const SHADOW_LAYER_DEFS = [
 const DEFAULT_SHADOW_SETTINGS = {
   widthScaleAt5Ft: 0.95,
   heightScaleAt5Ft: 0.95,
-  scaleLossPer5Ft: 0.01,
-  minScale: 0.75,
-  offsetStrength: 90,
-  offsetZRange: 150,
-  yOffsetRatio: 0.02,
-  opacity: 0.6,
-  softness: 0,
+  scaleLossPer5Ft: 0.005,
+  minScale: 0.38,
+  offsetStrength: 279,
+  offsetZRange: 102,
+  yOffsetRatio: 0.19,
+  opacity: 0.5,
+  softness: 0.1,
 };
 
 let currentShadowSettings = { ...DEFAULT_SHADOW_SETTINGS };
