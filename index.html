@@ -208,104 +208,10 @@
         min-width: 68px;
       }
 
-      .toggle-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      .switch {
-        position: relative;
-        width: 48px;
-        height: 28px;
-        flex: 0 0 auto;
-      }
-
-      .switch input {
-        position: absolute;
-        inset: 0;
-        opacity: 0;
-        margin: 0;
-      }
-
-      .switch__track {
-        position: absolute;
-        inset: 0;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
-        transition: background 120ms ease;
-      }
-
-      .switch__thumb {
-        position: absolute;
-        top: 3px;
-        left: 3px;
-        width: 22px;
-        height: 22px;
-        border-radius: 999px;
-        background: #f3f4f8;
-        transition: transform 120ms ease;
-      }
-
-      .switch input:checked + .switch__track {
-        background: rgba(101, 124, 255, 0.9);
-      }
-
-      .switch input:checked + .switch__track .switch__thumb {
-        transform: translateX(20px);
-      }
-
-      .float-animation {
-        display: grid;
-        gap: 10px;
-      }
-
-      .float-animation__header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .float-animation__value {
-        color: #ffd978;
-        font-weight: 700;
-        font-size: 13px;
-      }
-
     </style>
   </head>
   <body>
     <main>
-      <section class="float-animation">
-        <div class="toggle-row">
-          <div>
-            <h2>Float Animation</h2>
-            <p>Animate visual height only. Metadata z stays unchanged.</p>
-          </div>
-          <label class="switch" aria-label="Toggle float animation">
-            <input id="float-animation-toggle" type="checkbox" />
-            <span class="switch__track">
-              <span class="switch__thumb"></span>
-            </span>
-          </label>
-        </div>
-        <div class="float-animation__header">
-          <span>Amplitude</span>
-          <span id="float-animation-amplitude-value" class="float-animation__value">5 ft</span>
-        </div>
-        <input
-          id="float-animation-amplitude"
-          class="ui-slider"
-          type="range"
-          min="1"
-          max="10"
-          step="1"
-          value="5"
-        />
-      </section>
-
       <section class="stack">
         <h2>Token Status</h2>
         <p id="flying-empty">No active token statuses in this scene.</p>

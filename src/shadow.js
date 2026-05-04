@@ -6,7 +6,6 @@ import {
   getItemZFeet,
   isFlying,
 } from "./flying.js";
-import { getVisualZFeet } from "./floatAnimation.js";
 import { NS } from "./statusModel.js";
 
 export const LOCAL_SHADOW_NS = `${NS}-local-shadow`;
@@ -32,7 +31,7 @@ function getShadowId(itemId) {
 }
 
 function getShadowOffset(item) {
-  const zFeet = getVisualZFeet(item);
+  const zFeet = getItemZFeet(item);
   const normalizedHeight = zFeet / 120;
   const directionLength = Math.hypot(FIXED_LIGHT_VECTOR.x, FIXED_LIGHT_VECTOR.y);
   const direction = {
@@ -78,13 +77,13 @@ function getShadowPosition(item, bounds, size) {
 }
 
 function getShadowZIndex(owner, allItems) {
-  const ownerZFeet = getVisualZFeet(owner);
+  const ownerZFeet = getItemZFeet(owner);
   const ownerZIndex = Number(owner.zIndex ?? 0);
   const relevantItems = allItems.filter((item) => {
     if (!item || item.id === owner.id) return false;
     if (item?.metadata?.[LOCAL_SHADOW_NS]?.shadowFor) return false;
 
-    return !isFlying(item) || getVisualZFeet(item) < ownerZFeet;
+    return !isFlying(item) || getItemZFeet(item) < ownerZFeet;
   });
 
   if (relevantItems.length === 0) {

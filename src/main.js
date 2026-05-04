@@ -8,14 +8,7 @@ import {
   isFlying,
   setFlyingHeight,
 } from "./flying.js";
-import { getFloatAnimationAmplitude, isFloatAnimationEnabled } from "./floatAnimation.js";
 import { syncLocalShadows } from "./shadow.js";
-import {
-  applyRuntimeSettings,
-  getRoomSettings,
-  subscribeToRoomSettings,
-  updateRoomSettings,
-} from "./settings.js";
 
 const state = {
   items: [],
@@ -98,25 +91,8 @@ function renderFlyingList() {
   }
 }
 
-function renderFloatAnimationControls() {
-  const toggle = document.getElementById("float-animation-toggle");
-  const amplitudeSlider = document.getElementById("float-animation-amplitude");
-  const amplitudeValue = document.getElementById("float-animation-amplitude-value");
-
-  if (!toggle || !amplitudeSlider || !amplitudeValue) return;
-
-  const enabled = isFloatAnimationEnabled();
-  const amplitude = getFloatAnimationAmplitude();
-
-  toggle.checked = enabled;
-  amplitudeSlider.value = String(amplitude);
-  amplitudeSlider.disabled = !enabled;
-  amplitudeValue.textContent = `${amplitude} ft`;
-}
-
 function render() {
   renderFlyingList();
-  renderFloatAnimationControls();
 }
 
 async function refreshItems() {
@@ -145,25 +121,7 @@ async function refreshItems() {
 }
 
 OBR.onReady(() => {
-  const floatAnimationToggle = document.getElementById("float-animation-toggle");
-  const floatAnimationAmplitude = document.getElementById("float-animation-amplitude");
   const list = document.getElementById("flying-list");
-
-  subscribeToRoomSettings((settings) => {
-    applyRuntimeSettings(settings);
-
-    if (state.sceneReady) {
-      Promise.resolve()
-        .then(async () => {
-          await syncLocalDeadVisuals(state.items);
-          await syncLocalShadows(state.items);
-        })
-        .then(render);
-      return;
-    }
-
-    render();
-  });
 
   if (list) {
     list.addEventListener("click", async (event) => {
@@ -207,31 +165,6 @@ OBR.onReady(() => {
     });
   }
 
-  if (floatAnimationToggle) {
-    floatAnimationToggle.addEventListener("change", async (event) => {
-      await updateRoomSettings({
-        floatAnimationEnabled: event.target.checked,
-      });
-      await refreshItems();
-    });
-  }
-
-  if (floatAnimationAmplitude) {
-    floatAnimationAmplitude.addEventListener("input", (event) => {
-      applyRuntimeSettings({
-        floatAnimationAmplitude: event.target.value,
-      });
-      render();
-    });
-
-    floatAnimationAmplitude.addEventListener("change", async (event) => {
-      await updateRoomSettings({
-        floatAnimationAmplitude: event.target.value,
-      });
-      await refreshItems();
-    });
-  }
-
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
@@ -257,8 +190,6 @@ OBR.onReady(() => {
 
   OBR.scene.isReady().then(async (ready) => {
     state.sceneReady = ready;
-    const settings = await getRoomSettings();
-    applyRuntimeSettings(settings);
     render();
 
     if (!ready) return;

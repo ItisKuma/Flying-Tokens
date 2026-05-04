@@ -1,20 +1,12 @@
 import OBR from "@owlbear-rodeo/sdk";
 import {
-  clearLocalDeadVisuals,
   hasAnimatingDeadVisuals,
   syncLocalDeadVisuals,
 } from "./deadVisuals.js";
-import { isFloatAnimationEnabled } from "./floatAnimation.js";
 import { setupContextMenu } from "./contextMenu.js";
-import { clearLocalFloatEffects, syncLocalFloatEffects } from "./floatEffect.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
-import {
-  applyRuntimeSettings,
-  getRoomSettings,
-  subscribeToRoomSettings,
-} from "./settings.js";
 
-const FLOAT_ANIMATION_TICK_MS = 120;
+const DEAD_ANIMATION_TICK_MS = 120;
 
 const state = {
   items: [],
@@ -42,30 +34,19 @@ async function refreshItems() {
   }
 
   await syncLocalDeadVisuals(state.items);
-  await syncLocalFloatEffects(state.items);
   await syncLocalShadows(state.items);
 }
 
-async function runAnimationTick() {
+async function runDeadAnimationTick() {
   if (!state.sceneReady) {
     return;
   }
 
-  const shouldAnimateDead = hasAnimatingDeadVisuals(state.items);
-  const shouldAnimateFloat = isFloatAnimationEnabled();
-
-  if (!shouldAnimateDead && !shouldAnimateFloat) {
+  if (!hasAnimatingDeadVisuals(state.items)) {
     return;
   }
 
-  if (shouldAnimateDead) {
-    await syncLocalDeadVisuals(state.items);
-  }
-
-  if (shouldAnimateFloat) {
-    await syncLocalFloatEffects(state.items);
-    await syncLocalShadows(state.items);
-  }
+  await syncLocalDeadVisuals(state.items);
 }
 
 function stopAnimationLoop() {
@@ -80,37 +61,20 @@ function stopAnimationLoop() {
 function startAnimationLoop() {
   stopAnimationLoop();
   animationIntervalId = window.setInterval(() => {
-    runAnimationTick();
-  }, FLOAT_ANIMATION_TICK_MS);
+    runDeadAnimationTick();
+  }, DEAD_ANIMATION_TICK_MS);
 }
 
 OBR.onReady(() => {
-  subscribeToRoomSettings((settings) => {
-    applyRuntimeSettings(settings);
-
-    if (!state.sceneReady) {
-      return;
-    }
-
-    Promise.resolve()
-      .then(async () => {
-        await syncLocalDeadVisuals(state.items);
-        await syncLocalFloatEffects(state.items);
-        await syncLocalShadows(state.items);
-      });
-  });
-
   setupContextMenu();
 
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
-    Promise.resolve()
-      .then(async () => {
-        await syncLocalDeadVisuals(state.items);
-        await syncLocalFloatEffects(state.items);
-        await syncLocalShadows(state.items);
-      });
+    Promise.resolve().then(async () => {
+      await syncLocalDeadVisuals(state.items);
+      await syncLocalShadows(state.items);
+    });
   });
 
   OBR.scene.onReadyChange(async (ready) => {
@@ -119,12 +83,10 @@ OBR.onReady(() => {
     if (!ready) {
       state.items = [];
       stopAnimationLoop();
-      clearLocalFloatEffects();
+      await clearLocalShadows();
       return;
     }
 
-    const settings = await getRoomSettings();
-    applyRuntimeSettings(settings);
     await refreshItems();
     startAnimationLoop();
   });
@@ -133,13 +95,10 @@ OBR.onReady(() => {
     state.sceneReady = ready;
 
     if (!ready) {
-      clearLocalFloatEffects();
+      await clearLocalShadows();
       return;
     }
 
-    const settings = await getRoomSettings();
-    applyRuntimeSettings(settings);
-    await clearLocalFloatEffects();
     await refreshItems();
     startAnimationLoop();
   });
