@@ -68,11 +68,12 @@ function getTokenSize(item, bounds) {
   };
 }
 
-function getShadowPosition(item, size) {
+function getShadowPosition(item, bounds, size) {
+  const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
   const offset = getShadowOffset(item);
   return {
-    x: offset.x,
-    y: offset.y + size.height * SHADOW_Y_OFFSET_RATIO,
+    x: Number(center.x ?? 0) + offset.x,
+    y: Number(center.y ?? 0) + offset.y + size.height * SHADOW_Y_OFFSET_RATIO,
   };
 }
 
@@ -102,7 +103,7 @@ function buildLocalShadow(item, allItems, bounds) {
   const shadow = buildImage(SHADOW_IMAGE, SHADOW_GRID)
     .id(getShadowId(item.id))
     .name("Flying Shadow")
-    .position(getShadowPosition(item, size))
+    .position(getShadowPosition(item, bounds, size))
     .scale({ x: size.width / SHADOW_IMAGE.width, y: size.height / SHADOW_IMAGE.height })
     .attachedTo(item.id)
     .layer("CHARACTER")

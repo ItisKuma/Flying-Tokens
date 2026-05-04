@@ -53,13 +53,21 @@ function getAuraSize(bounds, item, now = performance.now()) {
   };
 }
 
+function getAuraWorldPosition(item, bounds) {
+  const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
+  return {
+    x: Number(center.x ?? 0),
+    y: Number(center.y ?? 0),
+  };
+}
+
 function buildFloatVisual(item, bounds, now = performance.now()) {
   const size = getAuraSize(bounds, item, now);
 
   return buildImage(FLOAT_AURA_IMAGE, FLOAT_AURA_GRID)
     .id(getFloatVisualId(item.id))
     .name("Flying Aura")
-    .position({ x: 0, y: 0 })
+    .position(getAuraWorldPosition(item, bounds))
     .scale({ x: size.width / FLOAT_AURA_IMAGE.width, y: size.height / FLOAT_AURA_IMAGE.height })
     .attachedTo(item.id)
     .layer("CHARACTER")
