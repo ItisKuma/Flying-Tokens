@@ -8,8 +8,7 @@ import {
 } from "./floatAnimation.js";
 import { NS } from "./statusModel.js";
 
-export const FLOAT_VISUAL_NS = `${NS}/float-visual`;
-const LEGACY_LOCAL_FLOAT_EFFECT_NS = `${NS}-local-float`;
+export const LOCAL_FLOAT_EFFECT_NS = `${NS}-local-float`;
 const FLOAT_VISUAL_ID_PREFIX = `${NS}/float-visual/`;
 const FLOAT_AURA_GRID = {
   dpi: 150,
@@ -24,19 +23,8 @@ const FLOAT_AURA_IMAGE = {
   mime: "image/svg+xml",
 };
 
-let cachedRolePromise = null;
-
 function getFloatVisualId(itemId) {
   return `${FLOAT_VISUAL_ID_PREFIX}${itemId}`;
-}
-
-async function canManageFloatVisuals() {
-  cachedRolePromise ??= OBR.player.getRole();
-  return (await cachedRolePromise) === "GM";
-}
-
-function isManagedFloatVisual(item) {
-  return Boolean(item?.metadata?.[FLOAT_VISUAL_NS]?.effectFor);
 }
 
 function getPulseFactor(item, now = performance.now()) {
@@ -53,19 +41,21 @@ function getAuraScale(item, now = performance.now()) {
 }
 
 function getAuraSize(bounds, item, now = performance.now()) {
-  const width = Number(bounds?.width ?? item?.image?.width ?? item?.shape?.width ?? item?.width ?? 100);
-  const height = Number(bounds?.height ?? item?.image?.height ?? item?.shape?.height ?? item?.height ?? 100);
+  const width = Number(item?.image?.width ?? item?.shape?.width ?? item?.width ?? bounds?.width ?? 100);
+  const height = Number(item?.image?.height ?? item?.shape?.height ?? item?.height ?? bounds?.height ?? 100);
+  const scaleX = Number(item?.scale?.x ?? 1);
+  const scaleY = Number(item?.scale?.y ?? 1);
   const scale = getAuraScale(item, now);
 
   return {
-    width: width * scale,
-    height: height * scale,
+    width: width * scaleX * scale,
+    height: height * scaleY * scale,
   };
 }
 
 function buildFloatVisual(item, bounds, now = performance.now()) {
   const size = getAuraSize(bounds, item, now);
-  const center = bounds?.center ?? item.position ?? { x: 0, y: 0 };
+  const center = item.position ?? bounds?.center ?? { x: 0, y: 0 };
 
   return buildImage(FLOAT_AURA_IMAGE, FLOAT_AURA_GRID)
     .id(getFloatVisualId(item.id))
@@ -77,7 +67,7 @@ function buildFloatVisual(item, bounds, now = performance.now()) {
     .disableHit(true)
     .disableAutoZIndex(true)
     .metadata({
-      [FLOAT_VISUAL_NS]: {
+      [LOCAL_FLOAT_EFFECT_NS]: {
         effectFor: item.id,
       },
     })
@@ -85,39 +75,34 @@ function buildFloatVisual(item, bounds, now = performance.now()) {
 }
 
 export async function clearLocalFloatEffects() {
-  const legacyLocalItems = await OBR.scene.local.getItems(
-    (item) => item?.metadata?.[LEGACY_LOCAL_FLOAT_EFFECT_NS]?.effectFor,
+  const localItems = await OBR.scene.local.getItems(
+    (item) => item?.metadata?.[LOCAL_FLOAT_EFFECT_NS]?.effectFor,
   );
 
-  if (legacyLocalItems.length > 0) {
-    await OBR.scene.local.deleteItems(legacyLocalItems.map((item) => item.id));
+  if (localItems.length > 0) {
+    await OBR.scene.local.deleteItems(localItems.map((item) => item.id));
   }
 }
 
 export async function syncLocalFloatEffects(items) {
-  await clearLocalFloatEffects();
-
-  if (!(await canManageFloatVisuals())) return;
-
-  const sceneItems = await OBR.scene.items.getItems(
-    (item) => item?.metadata?.[FLOAT_VISUAL_NS]?.effectFor,
+  const localItems = await OBR.scene.local.getItems(
+    (item) => item?.metadata?.[LOCAL_FLOAT_EFFECT_NS]?.effectFor,
   );
 
   if (!isFloatAnimationEnabled()) {
-    if (sceneItems.length > 0) {
-      await OBR.scene.items.deleteItems(sceneItems.map((item) => item.id));
+    if (localItems.length > 0) {
+      await OBR.scene.local.deleteItems(localItems.map((item) => item.id));
     }
     return;
   }
 
-  const sourceItems = items.filter((item) => !isManagedFloatVisual(item));
-  const flyingItems = getFlyingItems(sourceItems);
+  const flyingItems = getFlyingItems(items);
   const flyingById = new Map(flyingItems.map((item) => [item.id, item]));
   const desiredEffectIds = new Set(flyingItems.map((item) => getFloatVisualId(item.id)));
 
-  const itemIdsToDelete = sceneItems
+  const itemIdsToDelete = localItems
     .filter((sceneItem) => {
-      const ownerId = sceneItem.metadata?.[FLOAT_VISUAL_NS]?.effectFor;
+      const ownerId = sceneItem.metadata?.[LOCAL_FLOAT_EFFECT_NS]?.effectFor;
       if (!ownerId) return false;
       if (!flyingById.has(ownerId)) return true;
       return !desiredEffectIds.has(sceneItem.id);
@@ -125,10 +110,10 @@ export async function syncLocalFloatEffects(items) {
     .map((sceneItem) => sceneItem.id);
 
   if (itemIdsToDelete.length > 0) {
-    await OBR.scene.items.deleteItems(itemIdsToDelete);
+    await OBR.scene.local.deleteItems(itemIdsToDelete);
   }
 
-  const sceneItemsById = new Map(sceneItems.map((sceneItem) => [sceneItem.id, sceneItem]));
+  const sceneItemsById = new Map(localItems.map((sceneItem) => [sceneItem.id, sceneItem]));
   const itemsToAdd = [];
   const boundsById = new Map();
   const now = performance.now();
@@ -150,13 +135,13 @@ export async function syncLocalFloatEffects(items) {
 
     if (!existingEffect || existingEffect.type !== effect.type) {
       if (existingEffect?.id) {
-        await OBR.scene.items.deleteItems([existingEffect.id]);
+        await OBR.scene.local.deleteItems([existingEffect.id]);
       }
       itemsToAdd.push(effect);
       continue;
     }
 
-    await OBR.scene.items.updateItems([effect.id], (draftItems) => {
+    await OBR.scene.local.updateItems([effect.id], (draftItems) => {
       for (const draftItem of draftItems) {
         draftItem.position = effect.position;
         draftItem.layer = effect.layer;
@@ -175,6 +160,6 @@ export async function syncLocalFloatEffects(items) {
   }
 
   if (itemsToAdd.length > 0) {
-    await OBR.scene.items.addItems(itemsToAdd);
+    await OBR.scene.local.addItems(itemsToAdd);
   }
 }
