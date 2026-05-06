@@ -184,8 +184,8 @@ export async function syncLocalFlyingLabels(items) {
       buildFlyingWing(item, bounds, "left"),
       buildFlyingWing(item, bounds, "right"),
     ];
-    wings[0].zIndex = Number(item.zIndex ?? 0) - 0.2;
-    wings[1].zIndex = Number(item.zIndex ?? 0) - 0.2;
+    wings[0].zIndex = Number(item.zIndex ?? 0) + 0.1;
+    wings[1].zIndex = Number(item.zIndex ?? 0) + 0.1;
 
     for (const label of [textLabel, ...wings]) {
       const existingLabel = localItemsById.get(label.id);
