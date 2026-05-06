@@ -131,7 +131,7 @@ function roundToNearestGridSquare(value, gridDpi) {
 
 function getShadowPosition(item, bounds, size) {
   const settings = currentShadowSettings;
-  const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
+  const center = item?.position ?? { x: 0, y: 0 };
   const offset = getShadowOffset(item);
   return {
     x: Number(center.x ?? 0) + offset.x,
