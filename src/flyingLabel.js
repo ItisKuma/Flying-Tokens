@@ -17,11 +17,12 @@ const FLYING_WING_GRID = {
   offset: { x: 0, y: 0 },
 };
 const LABEL_GAP = 28;
-const WING_TEXT_GAP = 10;
-const WING_WIDTH = 40;
-const WING_HEIGHT = 54;
+const WING_TEXT_GAP = -6;
 const LABEL_FONT_SIZE = 60;
-const LABEL_CHAR_WIDTH = 31;
+const LABEL_CHAR_WIDTH = 24;
+const WING_WIDTH = LABEL_FONT_SIZE * 1.5;
+const WING_ASPECT_RATIO = FLYING_WING_IMAGE.width / FLYING_WING_IMAGE.height;
+const WING_HEIGHT = WING_WIDTH / WING_ASPECT_RATIO;
 
 function getFlyingLabelId(itemId) {
   return `${FLYING_LABEL_ID_PREFIX}${itemId}/text`;
@@ -32,11 +33,11 @@ function getFlyingWingId(itemId, side) {
 }
 
 function getFlyingLabelText(item) {
-  return `${getItemZFeet(item)} ft`;
+  return `${getItemZFeet(item)}ft`;
 }
 
 function getEstimatedLabelWidth(text) {
-  return Math.max(90, text.length * LABEL_CHAR_WIDTH);
+  return Math.max(58, text.length * LABEL_CHAR_WIDTH);
 }
 
 function getDisplayedTokenHeight(item, bounds) {
@@ -100,7 +101,7 @@ function buildFlyingWing(item, bounds, side) {
     .name("Flying Wing")
     .position({
       x: anchor.x + direction * (textWidth / 2 + WING_TEXT_GAP + WING_WIDTH / 2),
-      y: anchor.y - 2,
+      y: anchor.y,
     })
     .scale({
       x: (WING_WIDTH / FLYING_WING_IMAGE.width) * direction,
@@ -183,8 +184,8 @@ export async function syncLocalFlyingLabels(items) {
       buildFlyingWing(item, bounds, "left"),
       buildFlyingWing(item, bounds, "right"),
     ];
-    wings[0].zIndex = Number(item.zIndex ?? 0) + 0.19;
-    wings[1].zIndex = Number(item.zIndex ?? 0) + 0.19;
+    wings[0].zIndex = Number(item.zIndex ?? 0) - 0.2;
+    wings[1].zIndex = Number(item.zIndex ?? 0) - 0.2;
 
     for (const label of [textLabel, ...wings]) {
       const existingLabel = localItemsById.get(label.id);
