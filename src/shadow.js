@@ -10,7 +10,7 @@ import { NS } from "./statusModel.js";
 
 export const LOCAL_SHADOW_NS = `${NS}-local-shadow`;
 const SHADOW_ID_PREFIX = `${NS}/shadow/`;
-const FIXED_LIGHT_VECTOR = { x: -1, y: -1 };
+const FIXED_LIGHT_VECTOR = { x: 0, y: -1 };
 const SHADOW_LAYER_DEFS = [
   { key: "outer", zOffset: -0.11, opacityFactor: 0.42, spreadBase: 0, spreadSoftness: 0 },
   { key: "core", zOffset: -0.1, opacityFactor: 1, spreadBase: -0.0526315789, spreadSoftness: 0 },
@@ -21,8 +21,8 @@ const DEFAULT_SHADOW_SETTINGS = {
   heightScaleAt5Ft: 0.95,
   scaleLossPer5Ft: 0.005,
   minScale: 0.38,
-  offsetStrength: 279,
-  offsetZRange: 102,
+  offsetStrength: 500,
+  offsetZRange: 200,
   yOffsetRatio: 0.19,
   opacity: 0.5,
   softness: 0.1,
@@ -114,6 +114,21 @@ function getTokenSize(item, bounds) {
   };
 }
 
+function roundToNearestGridSquare(value, gridDpi) {
+  const numericValue = Number(value);
+  const numericGridDpi = Number(gridDpi);
+
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return value;
+  }
+
+  if (!Number.isFinite(numericGridDpi) || numericGridDpi <= 0) {
+    return numericValue;
+  }
+
+  return Math.max(numericGridDpi, Math.round(numericValue / numericGridDpi) * numericGridDpi);
+}
+
 function getShadowPosition(item, bounds, size) {
   const settings = currentShadowSettings;
   const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
@@ -149,9 +164,13 @@ function getShadowZIndex(owner, allItems, layerDef) {
   return Math.min(ownerZIndex + layerDef.zOffset, highestRelevantZIndex + 0.1);
 }
 
-function buildLocalShadowLayers(item, allItems, bounds) {
+function buildLocalShadowLayers(item, allItems, bounds, gridDpi) {
   const settings = currentShadowSettings;
-  const size = getTokenSize(item, bounds);
+  const rawSize = getTokenSize(item, bounds);
+  const size = {
+    width: roundToNearestGridSquare(rawSize.width, gridDpi),
+    height: roundToNearestGridSquare(rawSize.height, gridDpi),
+  };
   const position = getShadowPosition(item, bounds, size);
 
   return SHADOW_LAYER_DEFS.map((layerDef) => {
@@ -201,6 +220,13 @@ export async function syncLocalShadows(items) {
   const localItems = await OBR.scene.local.getItems(
     (item) => item?.metadata?.[LOCAL_SHADOW_NS]?.shadowFor,
   );
+  let gridDpi = 0;
+
+  try {
+    gridDpi = await OBR.scene.grid.getDpi();
+  } catch {
+    gridDpi = 0;
+  }
 
   const flyingById = new Map(flyingItems.map((item) => [item.id, item]));
   const desiredShadowIds = new Set(
@@ -236,7 +262,7 @@ export async function syncLocalShadows(items) {
   }
 
   for (const item of flyingItems) {
-    const shadowLayers = buildLocalShadowLayers(item, items, boundsById.get(item.id));
+    const shadowLayers = buildLocalShadowLayers(item, items, boundsById.get(item.id), gridDpi);
 
     for (const shadow of shadowLayers) {
       const existingShadow = localItemsById.get(shadow.id);
