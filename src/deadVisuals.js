@@ -7,7 +7,6 @@ export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
 const DEAD_ANIMATION_DURATION_MS = 480;
 const DEAD_SPLAT_SIZE_MULTIPLIER = 3;
-const DEAD_SPLAT_Y_OFFSET_RATIO = 0.08;
 const BLOOD_GRID = {
   dpi: 150,
   offset: { x: 0, y: 0 },
@@ -102,17 +101,16 @@ function getDeadVisualSize(item, bounds, now = Date.now()) {
 }
 
 function getDeadVisualPosition(item, bounds, size) {
-  const center = bounds?.center ?? item.position ?? { x: 0, y: 0 };
-  const yOffset = size.height * DEAD_SPLAT_Y_OFFSET_RATIO;
+  const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
 
   return {
     x: center.x,
-    y: center.y + yOffset,
+    y: center.y,
   };
 }
 
 function getDeadVisualZIndex(item) {
-  return Number(item?.zIndex ?? 0) - 0.2;
+  return Number(item?.zIndex ?? 0) + 0.1;
 }
 
 function buildDeadVisual(item, bounds, now = Date.now()) {

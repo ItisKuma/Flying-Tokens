@@ -1,6 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { isDead, toggleDeadForItems } from "./dead.js";
-import { syncLocalDeadVisuals } from "./deadVisuals.js";
+import { DEAD_VISUAL_NS, syncLocalDeadVisuals } from "./deadVisuals.js";
 import { syncLocalFlyingLabels } from "./flyingLabel.js";
 import {
   getItemLabel,
@@ -20,6 +20,10 @@ const state = {
 
 function isSceneCharacterToken(item) {
   if (!item || item.layer !== "CHARACTER" || item.type !== "IMAGE") {
+    return false;
+  }
+
+  if (item?.metadata?.[DEAD_VISUAL_NS]?.deadFor) {
     return false;
   }
 
