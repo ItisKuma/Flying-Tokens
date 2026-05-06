@@ -12,19 +12,28 @@ import {
 import { syncLocalShadows } from "./shadow.js";
 import { getRegisteredStatusDefinitions } from "./statusRegistry.js";
 
-const TAB_SELECTED = "selected";
-const TAB_SCENE = "scene";
-
 const state = {
   items: [],
   sceneReady: false,
   selectedIds: [],
-  activeTab: TAB_SCENE,
 };
+
+function isSceneCharacterToken(item) {
+  if (!item || item.layer !== "CHARACTER" || item.type !== "IMAGE") {
+    return false;
+  }
+
+  const name = getItemLabel(item);
+  if (!name || name.startsWith(".")) {
+    return false;
+  }
+
+  return true;
+}
 
 function getCharacterItems() {
   return state.items
-    .filter((item) => item?.layer === "CHARACTER")
+    .filter(isSceneCharacterToken)
     .sort((left, right) => getItemLabel(left).localeCompare(getItemLabel(right)));
 }
 
@@ -148,24 +157,6 @@ function createTokenRow(item) {
   return row;
 }
 
-function renderTabButtons() {
-  const buttons = document.querySelectorAll("[data-tab-target]");
-  for (const button of buttons) {
-    const isActive = button.dataset.tabTarget === state.activeTab;
-    button.classList.toggle("is-active", isActive);
-  }
-
-  const selectedPanel = document.getElementById("tab-panel-selected");
-  const scenePanel = document.getElementById("tab-panel-scene");
-
-  if (selectedPanel) {
-    selectedPanel.hidden = state.activeTab !== TAB_SELECTED;
-  }
-  if (scenePanel) {
-    scenePanel.hidden = state.activeTab !== TAB_SCENE;
-  }
-}
-
 function renderSelectedTab() {
   const list = document.getElementById("selected-token-list");
   const empty = document.getElementById("selected-token-empty");
@@ -221,7 +212,6 @@ function renderSceneTab() {
 }
 
 function render() {
-  renderTabButtons();
   renderSelectedTab();
   renderSceneTab();
 }
@@ -275,13 +265,6 @@ async function toggleStatus(item, statusId) {
 
 OBR.onReady(() => {
   document.addEventListener("click", async (event) => {
-    const tabButton = event.target.closest("[data-tab-target]");
-    if (tabButton) {
-      state.activeTab = tabButton.dataset.tabTarget;
-      render();
-      return;
-    }
-
     const statusButton = event.target.closest("button[data-action='toggle-status'][data-item-id][data-status-id]");
     if (!statusButton) return;
 
