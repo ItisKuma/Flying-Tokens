@@ -8,8 +8,8 @@ const FLYING_WING_IMAGE = {
   url: globalThis.location?.origin
     ? new URL("/flying-wing.svg", globalThis.location.origin).toString()
     : "/flying-wing.svg",
-  width: 128,
-  height: 96,
+  width: 963,
+  height: 1280,
   mime: "image/svg+xml",
 };
 const FLYING_WING_GRID = {
@@ -17,12 +17,12 @@ const FLYING_WING_GRID = {
   offset: { x: 0, y: 0 },
 };
 const LABEL_GAP = 28;
-const WING_TEXT_GAP = -6;
+const WING_TEXT_GAP = 2;
 const LABEL_FONT_SIZE = 60;
 const LABEL_CHAR_WIDTH = 24;
-const WING_WIDTH = LABEL_FONT_SIZE * 1.5;
+const WING_HEIGHT = LABEL_FONT_SIZE * 1.5;
 const WING_ASPECT_RATIO = FLYING_WING_IMAGE.width / FLYING_WING_IMAGE.height;
-const WING_HEIGHT = WING_WIDTH / WING_ASPECT_RATIO;
+const WING_WIDTH = WING_HEIGHT * WING_ASPECT_RATIO;
 
 function getFlyingLabelId(itemId) {
   return `${FLYING_LABEL_ID_PREFIX}${itemId}/text`;
