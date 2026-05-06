@@ -1,5 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { syncLocalDeadVisuals } from "./deadVisuals.js";
+import { syncLocalFlyingLabels } from "./flyingLabel.js";
 import {
   Z_STEP_FEET,
   getFlyingItems,
@@ -182,6 +183,7 @@ async function refreshItems() {
   }
 
   await syncLocalDeadVisuals(state.items);
+  await syncLocalFlyingLabels(state.items);
   await syncLocalShadows(state.items);
   render();
 }
@@ -280,6 +282,7 @@ OBR.onReady(() => {
     Promise.resolve()
       .then(async () => {
         await syncLocalDeadVisuals(state.items);
+        await syncLocalFlyingLabels(state.items);
         await syncLocalShadows(state.items);
       })
       .then(render);

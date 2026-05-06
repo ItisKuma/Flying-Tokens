@@ -4,6 +4,7 @@ import {
   syncLocalDeadVisuals,
 } from "./deadVisuals.js";
 import { setupContextMenu } from "./contextMenu.js";
+import { clearLocalFlyingLabels, syncLocalFlyingLabels } from "./flyingLabel.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
 import {
   applyRuntimeShadowSettings,
@@ -39,6 +40,7 @@ async function refreshItems() {
   }
 
   await syncLocalDeadVisuals(state.items);
+  await syncLocalFlyingLabels(state.items);
   await syncLocalShadows(state.items);
 }
 
@@ -90,6 +92,7 @@ OBR.onReady(() => {
     state.items = items;
     Promise.resolve().then(async () => {
       await syncLocalDeadVisuals(state.items);
+      await syncLocalFlyingLabels(state.items);
       await syncLocalShadows(state.items);
     });
   });
@@ -100,6 +103,7 @@ OBR.onReady(() => {
     if (!ready) {
       state.items = [];
       stopAnimationLoop();
+      await clearLocalFlyingLabels();
       await clearLocalShadows();
       return;
     }
@@ -113,6 +117,7 @@ OBR.onReady(() => {
     state.sceneReady = ready;
 
     if (!ready) {
+      await clearLocalFlyingLabels();
       await clearLocalShadows();
       return;
     }
