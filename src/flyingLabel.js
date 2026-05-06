@@ -1,43 +1,18 @@
-import OBR, { buildImage, buildText } from "@owlbear-rodeo/sdk";
+import OBR, { buildText } from "@owlbear-rodeo/sdk";
 import { getFlyingItems, getItemZFeet } from "./flying.js";
 import { NS } from "./statusModel.js";
 
 export const LOCAL_FLYING_LABEL_NS = `${NS}-local-flying-label`;
 const FLYING_LABEL_ID_PREFIX = `${NS}/flying-label/`;
-const FLYING_WING_IMAGE = {
-  url: globalThis.location?.origin
-    ? new URL("/flying-wing.svg", globalThis.location.origin).toString()
-    : "/flying-wing.svg",
-  width: 963,
-  height: 1280,
-  mime: "image/svg+xml",
-};
-const FLYING_WING_GRID = {
-  dpi: 150,
-  offset: { x: 0, y: 0 },
-};
 const LABEL_GAP = 28;
-const WING_TEXT_GAP = 2;
 const LABEL_FONT_SIZE = 60;
-const LABEL_CHAR_WIDTH = 24;
-const WING_HEIGHT = LABEL_FONT_SIZE * 1.5;
-const WING_ASPECT_RATIO = FLYING_WING_IMAGE.width / FLYING_WING_IMAGE.height;
-const WING_WIDTH = WING_HEIGHT * WING_ASPECT_RATIO;
 
 function getFlyingLabelId(itemId) {
   return `${FLYING_LABEL_ID_PREFIX}${itemId}/text`;
 }
 
-function getFlyingWingId(itemId, side) {
-  return `${FLYING_LABEL_ID_PREFIX}${itemId}/wing-${side}`;
-}
-
 function getFlyingLabelText(item) {
   return `${getItemZFeet(item)}ft`;
-}
-
-function getEstimatedLabelWidth(text) {
-  return Math.max(58, text.length * LABEL_CHAR_WIDTH);
 }
 
 function getDisplayedTokenHeight(item, bounds) {
@@ -92,44 +67,8 @@ function buildFlyingTextLabel(item, bounds) {
     .build();
 }
 
-function buildFlyingWing(item, bounds, side) {
-  const anchor = getFlyingLabelAnchor(item, bounds);
-  const textWidth = getEstimatedLabelWidth(getFlyingLabelText(item));
-  const direction = side === "left" ? -1 : 1;
-  return buildImage(FLYING_WING_IMAGE, FLYING_WING_GRID)
-    .id(getFlyingWingId(item.id, side))
-    .name("Flying Wing")
-    .position({
-      x: anchor.x + direction * (textWidth / 2 + WING_TEXT_GAP + WING_WIDTH / 2),
-      y: anchor.y,
-    })
-    .scale({
-      x: (WING_WIDTH / FLYING_WING_IMAGE.width) * direction,
-      y: WING_HEIGHT / FLYING_WING_IMAGE.height,
-    })
-    .attachedTo(item.id)
-    .layer("CHARACTER")
-    .locked(true)
-    .disableHit(true)
-    .disableAutoZIndex(true)
-    .disableAttachmentBehavior(["SCALE", "ROTATION"])
-    .metadata({
-      [LOCAL_FLYING_LABEL_NS]: {
-        labelFor: item.id,
-        role: `wing-${side}`,
-      },
-    })
-    .build();
-}
-
 function getDesiredFlyingLabelIds(flyingItems) {
-  return new Set(
-    flyingItems.flatMap((item) => [
-      getFlyingLabelId(item.id),
-      getFlyingWingId(item.id, "left"),
-      getFlyingWingId(item.id, "right"),
-    ]),
-  );
+  return new Set(flyingItems.map((item) => getFlyingLabelId(item.id)));
 }
 
 export async function clearLocalFlyingLabels() {
@@ -180,47 +119,31 @@ export async function syncLocalFlyingLabels(items) {
     const textLabel = buildFlyingTextLabel(item, bounds);
     textLabel.zIndex = Number(item.zIndex ?? 0) + 0.2;
 
-    const wings = [
-      buildFlyingWing(item, bounds, "left"),
-      buildFlyingWing(item, bounds, "right"),
-    ];
-    wings[0].zIndex = Number(item.zIndex ?? 0) + 0.1;
-    wings[1].zIndex = Number(item.zIndex ?? 0) + 0.1;
-
-    for (const label of [textLabel, ...wings]) {
-      const existingLabel = localItemsById.get(label.id);
-      if (!existingLabel || existingLabel.type !== label.type) {
-        if (existingLabel?.id) {
-          await OBR.scene.local.deleteItems([existingLabel.id]);
-        }
-        itemsToAdd.push(label);
-        continue;
+    const existingLabel = localItemsById.get(textLabel.id);
+    if (!existingLabel || existingLabel.type !== textLabel.type) {
+      if (existingLabel?.id) {
+        await OBR.scene.local.deleteItems([existingLabel.id]);
       }
-
-      await OBR.scene.local.updateItems([label.id], (draftItems) => {
-        for (const draftItem of draftItems) {
-          draftItem.position = label.position;
-          draftItem.layer = label.layer;
-          draftItem.locked = label.locked;
-          draftItem.visible = label.visible;
-          draftItem.disableHit = label.disableHit;
-          draftItem.disableAutoZIndex = label.disableAutoZIndex;
-          draftItem.zIndex = label.zIndex;
-          draftItem.metadata = label.metadata;
-          draftItem.rotation = label.rotation;
-          draftItem.attachedTo = label.attachedTo;
-          draftItem.disableAttachmentBehavior = label.disableAttachmentBehavior;
-
-          if (label.type === "TEXT") {
-            draftItem.text = label.text;
-          } else if (label.type === "IMAGE") {
-            draftItem.scale = label.scale;
-            draftItem.image = label.image;
-            draftItem.grid = label.grid;
-          }
-        }
-      });
+      itemsToAdd.push(textLabel);
+      continue;
     }
+
+    await OBR.scene.local.updateItems([textLabel.id], (draftItems) => {
+      for (const draftItem of draftItems) {
+        draftItem.position = textLabel.position;
+        draftItem.layer = textLabel.layer;
+        draftItem.locked = textLabel.locked;
+        draftItem.visible = textLabel.visible;
+        draftItem.disableHit = textLabel.disableHit;
+        draftItem.disableAutoZIndex = textLabel.disableAutoZIndex;
+        draftItem.zIndex = textLabel.zIndex;
+        draftItem.metadata = textLabel.metadata;
+        draftItem.rotation = textLabel.rotation;
+        draftItem.attachedTo = textLabel.attachedTo;
+        draftItem.disableAttachmentBehavior = textLabel.disableAttachmentBehavior;
+        draftItem.text = textLabel.text;
+      }
+    });
   }
 
   if (itemsToAdd.length > 0) {

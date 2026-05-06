@@ -1,165 +1,239 @@
 import OBR from "@owlbear-rodeo/sdk";
+import { isDead, toggleDeadForItems } from "./dead.js";
 import { syncLocalDeadVisuals } from "./deadVisuals.js";
 import { syncLocalFlyingLabels } from "./flyingLabel.js";
 import {
-  Z_STEP_FEET,
-  getFlyingItems,
   getItemLabel,
   getItemZFeet,
   isFlying,
   setFlyingHeight,
+  toggleFlyingForItems,
 } from "./flying.js";
 import { syncLocalShadows } from "./shadow.js";
-import {
-  applyRuntimeShadowSettings,
-  getRoomShadowSettings,
-  subscribeToRoomShadowSettings,
-  updateRoomShadowSettings,
-} from "./shadowSettings.js";
+import { getRegisteredStatusDefinitions } from "./statusRegistry.js";
+
+const TAB_SELECTED = "selected";
+const TAB_SCENE = "scene";
 
 const state = {
   items: [],
   sceneReady: false,
+  selectedIds: [],
+  activeTab: TAB_SCENE,
 };
 
-const SHADOW_CONTROL_DEFINITIONS = [
-  { key: "widthScaleAt5Ft", label: "Width Scale @ 5 ft", min: 0.2, max: 2, step: 0.01 },
-  { key: "heightScaleAt5Ft", label: "Height Scale @ 5 ft", min: 0.2, max: 2, step: 0.01 },
-  { key: "scaleLossPer5Ft", label: "Scale Loss / 5 ft", min: -0.1, max: 0.1, step: 0.001 },
-  { key: "minScale", label: "Minimum Scale", min: 0.1, max: 2, step: 0.01 },
-  { key: "offsetStrength", label: "Offset Strength", min: 0, max: 300, step: 1 },
-  { key: "offsetZRange", label: "Offset Z Range", min: 5, max: 500, step: 1 },
-  { key: "yOffsetRatio", label: "Vertical Offset", min: -0.5, max: 0.5, step: 0.01 },
-  { key: "opacity", label: "Opacity", min: 0, max: 1, step: 0.01 },
-  { key: "softness", label: "Blur / Softness", min: 0, max: 1, step: 0.01 },
-];
+function getCharacterItems() {
+  return state.items
+    .filter((item) => item?.layer === "CHARACTER")
+    .sort((left, right) => getItemLabel(left).localeCompare(getItemLabel(right)));
+}
 
-function renderFlyingList() {
-  const list = document.getElementById("flying-list");
-  const emptyState = document.getElementById("flying-empty");
+function getSelectedCharacterItems() {
+  if (state.selectedIds.length === 0) {
+    return [];
+  }
 
-  if (!list || !emptyState) return;
+  const selectedIdSet = new Set(state.selectedIds);
+  return getCharacterItems().filter((item) => selectedIdSet.has(item.id));
+}
+
+function getStatusSummary(item) {
+  const parts = [];
+
+  if (isFlying(item)) {
+    parts.push(`Flying ${getItemZFeet(item)} ft`);
+  }
+
+  if (isDead(item)) {
+    parts.push("Dead");
+  }
+
+  if (parts.length === 0) {
+    return "No active status";
+  }
+
+  return parts.join(" · ");
+}
+
+function getStatusButtonConfig(item, statusId) {
+  if (statusId === "flying") {
+    return {
+      action: "toggle-status",
+      statusId,
+      label: isFlying(item) ? "Land" : "Flying",
+      active: isFlying(item),
+    };
+  }
+
+  if (statusId === "dead") {
+    return {
+      action: "toggle-status",
+      statusId,
+      label: isDead(item) ? "Revive" : "Dead",
+      active: isDead(item),
+    };
+  }
+
+  return {
+    action: "toggle-status",
+    statusId,
+    label: statusId,
+    active: false,
+  };
+}
+
+function createStatusButtons(item) {
+  const wrap = document.createElement("div");
+  wrap.className = "token-row__statuses";
+
+  for (const definition of getRegisteredStatusDefinitions()) {
+    const config = getStatusButtonConfig(item, definition.id);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `status-button${config.active ? " is-active" : ""}`;
+    button.textContent = config.label;
+    button.dataset.action = config.action;
+    button.dataset.itemId = item.id;
+    button.dataset.statusId = config.statusId;
+    wrap.append(button);
+  }
+
+  return wrap;
+}
+
+function createZSlider(item) {
+  const wrap = document.createElement("div");
+  wrap.className = "token-row__slider";
+
+  const value = document.createElement("div");
+  value.className = "token-row__slider-value";
+  value.textContent = `${getItemZFeet(item)} ft`;
+
+  const slider = document.createElement("input");
+  slider.className = "ui-slider";
+  slider.type = "range";
+  slider.min = "5";
+  slider.max = "150";
+  slider.step = "5";
+  slider.value = String(getItemZFeet(item));
+  slider.dataset.action = "set-z";
+  slider.dataset.itemId = item.id;
+
+  wrap.append(value, slider);
+  return wrap;
+}
+
+function createTokenRow(item) {
+  const row = document.createElement("li");
+  row.className = "token-row";
+
+  const header = document.createElement("div");
+  header.className = "token-row__header";
+
+  const name = document.createElement("div");
+  name.className = "token-row__name";
+  name.textContent = getItemLabel(item);
+
+  const summary = document.createElement("div");
+  summary.className = "token-row__summary";
+  summary.textContent = getStatusSummary(item);
+
+  header.append(name, summary);
+  row.append(header, createStatusButtons(item));
+
+  if (isFlying(item)) {
+    row.append(createZSlider(item));
+  }
+
+  return row;
+}
+
+function renderTabButtons() {
+  const buttons = document.querySelectorAll("[data-tab-target]");
+  for (const button of buttons) {
+    const isActive = button.dataset.tabTarget === state.activeTab;
+    button.classList.toggle("is-active", isActive);
+  }
+
+  const selectedPanel = document.getElementById("tab-panel-selected");
+  const scenePanel = document.getElementById("tab-panel-scene");
+
+  if (selectedPanel) {
+    selectedPanel.hidden = state.activeTab !== TAB_SELECTED;
+  }
+  if (scenePanel) {
+    scenePanel.hidden = state.activeTab !== TAB_SCENE;
+  }
+}
+
+function renderSelectedTab() {
+  const list = document.getElementById("selected-token-list");
+  const empty = document.getElementById("selected-token-empty");
+  if (!list || !empty) return;
+
+  list.innerHTML = "";
 
   if (!state.sceneReady) {
-    list.innerHTML = "";
-    emptyState.hidden = false;
-    emptyState.textContent = "Open a scene to see active token statuses.";
+    empty.hidden = false;
+    empty.textContent = "Open a scene to inspect the selected token.";
     return;
   }
 
-  const flyingItems = getFlyingItems(state.items);
+  const selectedItems = getSelectedCharacterItems();
+
+  if (selectedItems.length === 0) {
+    empty.hidden = false;
+    empty.textContent = "Select a character token in the scene.";
+    return;
+  }
+
+  empty.hidden = true;
+  for (const item of selectedItems) {
+    list.append(createTokenRow(item));
+  }
+}
+
+function renderSceneTab() {
+  const list = document.getElementById("scene-token-list");
+  const empty = document.getElementById("scene-token-empty");
+  if (!list || !empty) return;
 
   list.innerHTML = "";
-  emptyState.hidden = flyingItems.length > 0;
-  emptyState.textContent = "No active token statuses in this scene.";
 
-  for (const item of flyingItems) {
-    const row = document.createElement("li");
-    row.className = "flying-row";
+  if (!state.sceneReady) {
+    empty.hidden = false;
+    empty.textContent = "Open a scene to see character tokens.";
+    return;
+  }
 
-    const info = document.createElement("div");
-    info.className = "flying-row__info";
+  const characterItems = getCharacterItems();
 
-    const top = document.createElement("div");
-    top.className = "flying-row__top";
+  if (characterItems.length === 0) {
+    empty.hidden = false;
+    empty.textContent = "No character tokens in this scene.";
+    return;
+  }
 
-    const name = document.createElement("span");
-    name.className = "flying-row__name";
-    name.textContent = getItemLabel(item);
-
-    const height = document.createElement("span");
-    height.className = "flying-row__height";
-    height.textContent = `${getItemZFeet(item)} ft`;
-
-    top.append(name, height);
-    info.append(top);
-
-    const sliderWrap = document.createElement("div");
-    sliderWrap.className = "flying-row__slider";
-
-    const slider = document.createElement("input");
-    slider.className = "ui-slider";
-    slider.type = "range";
-    slider.min = "5";
-    slider.max = "150";
-    slider.step = "5";
-    slider.value = String(getItemZFeet(item));
-    slider.dataset.action = "set-z";
-    slider.dataset.itemId = item.id;
-
-    sliderWrap.append(slider);
-
-    const controls = document.createElement("div");
-    controls.className = "flying-row__controls";
-
-    const downButton = document.createElement("button");
-    downButton.type = "button";
-    downButton.textContent = "-5";
-    downButton.dataset.action = "decrease-z";
-    downButton.dataset.itemId = item.id;
-
-    const upButton = document.createElement("button");
-    upButton.type = "button";
-    upButton.textContent = "+5";
-    upButton.dataset.action = "increase-z";
-    upButton.dataset.itemId = item.id;
-    controls.append(downButton, upButton);
-
-    row.append(info, controls, sliderWrap);
-    list.append(row);
+  empty.hidden = true;
+  for (const item of characterItems) {
+    list.append(createTokenRow(item));
   }
 }
 
 function render() {
-  renderShadowControls();
-  renderFlyingList();
+  renderTabButtons();
+  renderSelectedTab();
+  renderSceneTab();
 }
 
-function formatShadowValue(definition, value) {
-  const numericValue = Number(value);
-  if (definition.step < 0.01) {
-    return numericValue.toFixed(3);
+async function refreshSelection() {
+  try {
+    state.selectedIds = (await OBR.player.getSelection()) ?? [];
+  } catch {
+    state.selectedIds = [];
   }
-  if (definition.step < 0.1) {
-    return numericValue.toFixed(2);
-  }
-  return numericValue.toFixed(0);
-}
 
-function renderShadowControls() {
-  const list = document.getElementById("shadow-controls");
-  if (!list) return;
-
-  const settings = applyRuntimeShadowSettings();
-  list.innerHTML = "";
-
-  for (const definition of SHADOW_CONTROL_DEFINITIONS) {
-    const row = document.createElement("label");
-    row.className = "shadow-control";
-
-    const header = document.createElement("div");
-    header.className = "shadow-control__header";
-
-    const name = document.createElement("span");
-    name.textContent = definition.label;
-
-    const value = document.createElement("span");
-    value.className = "shadow-control__value";
-    value.textContent = formatShadowValue(definition, settings[definition.key]);
-
-    const slider = document.createElement("input");
-    slider.className = "ui-slider";
-    slider.type = "range";
-    slider.min = String(definition.min);
-    slider.max = String(definition.max);
-    slider.step = String(definition.step);
-    slider.value = String(settings[definition.key]);
-    slider.dataset.shadowKey = definition.key;
-
-    header.append(name, value);
-    row.append(header, slider);
-    list.append(row);
-  }
+  render();
 }
 
 async function refreshItems() {
@@ -188,93 +262,65 @@ async function refreshItems() {
   render();
 }
 
+async function toggleStatus(item, statusId) {
+  if (statusId === "flying") {
+    await toggleFlyingForItems([item]);
+    return;
+  }
+
+  if (statusId === "dead") {
+    await toggleDeadForItems([item]);
+  }
+}
+
 OBR.onReady(() => {
-  const list = document.getElementById("flying-list");
-  const shadowControls = document.getElementById("shadow-controls");
-
-  subscribeToRoomShadowSettings((settings) => {
-    applyRuntimeShadowSettings(settings);
-
-    if (state.sceneReady) {
-      Promise.resolve()
-        .then(async () => {
-          await syncLocalShadows(state.items);
-        })
-        .then(render);
+  document.addEventListener("click", async (event) => {
+    const tabButton = event.target.closest("[data-tab-target]");
+    if (tabButton) {
+      state.activeTab = tabButton.dataset.tabTarget;
+      render();
       return;
     }
 
-    render();
+    const statusButton = event.target.closest("button[data-action='toggle-status'][data-item-id][data-status-id]");
+    if (!statusButton) return;
+
+    const item = state.items.find((candidate) => candidate.id === statusButton.dataset.itemId);
+    if (!item) return;
+
+    await toggleStatus(item, statusButton.dataset.statusId);
+    await refreshItems();
+    await refreshSelection();
   });
 
-  if (list) {
-    list.addEventListener("click", async (event) => {
-      const button = event.target.closest("button[data-action][data-item-id]");
-      if (!button) return;
+  document.addEventListener("input", (event) => {
+    const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
+    if (!slider) return;
 
-      const itemId = button.dataset.itemId;
-      const item = state.items.find((candidate) => candidate.id === itemId);
+    const wrap = slider.closest(".token-row__slider");
+    const value = wrap?.querySelector(".token-row__slider-value");
+    if (value) {
+      value.textContent = `${slider.value} ft`;
+    }
+  });
 
-      if (!item || !isFlying(item)) return;
+  document.addEventListener("change", async (event) => {
+    const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
+    if (!slider) return;
 
-      const delta = button.dataset.action === "increase-z" ? Z_STEP_FEET : -Z_STEP_FEET;
-      await setFlyingHeight(item.id, getItemZFeet(item) + delta);
+    const item = state.items.find((candidate) => candidate.id === slider.dataset.itemId);
+    if (!item || !isFlying(item)) {
       await refreshItems();
-    });
+      return;
+    }
 
-    list.addEventListener("input", (event) => {
-      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
-      if (!slider) return;
+    await setFlyingHeight(item.id, slider.value);
+    await refreshItems();
+  });
 
-      const row = slider.closest(".flying-row");
-      const height = row?.querySelector(".flying-row__height");
-      if (!height) return;
-      height.textContent = `${slider.value} ft`;
-    });
-
-    list.addEventListener("change", async (event) => {
-      const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
-      if (!slider) return;
-
-      const itemId = slider.dataset.itemId;
-      const item = state.items.find((candidate) => candidate.id === itemId);
-
-      if (!item || !isFlying(item)) {
-        await refreshItems();
-        return;
-      }
-
-      await setFlyingHeight(item.id, slider.value);
-      await refreshItems();
-    });
-  }
-
-  if (shadowControls) {
-    shadowControls.addEventListener("input", async (event) => {
-      const slider = event.target.closest("input[data-shadow-key]");
-      if (!slider) return;
-
-      applyRuntimeShadowSettings({
-        ...applyRuntimeShadowSettings(),
-        [slider.dataset.shadowKey]: slider.value,
-      });
-
-      if (state.sceneReady) {
-        await syncLocalShadows(state.items);
-      }
-      render();
-    });
-
-    shadowControls.addEventListener("change", async (event) => {
-      const slider = event.target.closest("input[data-shadow-key]");
-      if (!slider) return;
-
-      await updateRoomShadowSettings({
-        [slider.dataset.shadowKey]: slider.value,
-      });
-      await refreshItems();
-    });
-  }
+  OBR.player.onChange(() => {
+    Promise.resolve().then(refreshSelection);
+  });
 
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
@@ -293,21 +339,21 @@ OBR.onReady(() => {
 
     if (!ready) {
       state.items = [];
+      state.selectedIds = [];
       render();
       return;
     }
 
+    await refreshSelection();
     await refreshItems();
   });
 
   OBR.scene.isReady().then(async (ready) => {
     state.sceneReady = ready;
-    const shadowSettings = await getRoomShadowSettings();
-    applyRuntimeShadowSettings(shadowSettings);
+    await refreshSelection();
     render();
 
     if (!ready) return;
-
     await refreshItems();
   });
 });

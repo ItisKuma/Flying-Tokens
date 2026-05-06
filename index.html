@@ -16,10 +16,17 @@
         box-sizing: border-box;
       }
 
+      html,
       body {
         margin: 0;
         min-height: 100vh;
-        padding: 16px;
+      }
+
+      body {
+        width: 66vw;
+        min-width: 290px;
+        max-width: 360px;
+        padding: 14px;
         background:
           radial-gradient(circle at top, rgba(111, 140, 255, 0.18), transparent 32%),
           #171924;
@@ -27,7 +34,7 @@
 
       main {
         display: grid;
-        gap: 16px;
+        gap: 14px;
       }
 
       section {
@@ -44,12 +51,11 @@
       }
 
       h1 {
-        font-size: 20px;
+        font-size: 18px;
       }
 
       h2 {
         font-size: 14px;
-        margin-bottom: 10px;
         color: #bfc7ff;
       }
 
@@ -87,7 +93,23 @@
         gap: 10px;
       }
 
-      .flying-list {
+      .tab-bar {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .tab-button {
+        background: rgba(101, 124, 255, 0.14);
+        border: 1px solid rgba(148, 164, 255, 0.22);
+      }
+
+      .tab-button.is-active {
+        background: #657cff;
+        border-color: transparent;
+      }
+
+      .token-list {
         list-style: none;
         padding: 0;
         margin: 0;
@@ -95,40 +117,60 @@
         gap: 10px;
       }
 
-      .flying-row {
+      .token-row {
         display: grid;
-        grid-template-columns: 1fr auto;
         gap: 10px;
-        align-items: center;
         padding: 10px 12px;
         border-radius: 12px;
         background: rgba(0, 0, 0, 0.18);
       }
 
-      .flying-row__info {
+      .token-row__header {
         display: grid;
         gap: 4px;
       }
 
-      .flying-row__top {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 12px;
-      }
-
-      .flying-row__name {
+      .token-row__name {
         font-weight: 600;
       }
 
-      .flying-row__height {
+      .token-row__summary {
         color: #ffd978;
         font-size: 13px;
         font-weight: 700;
       }
 
-      .flying-row__slider {
-        grid-column: 1 / -1;
+      .token-row__statuses {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .status-button {
+        width: auto;
+        min-width: 84px;
+        background: rgba(101, 124, 255, 0.2);
+        border: 1px solid rgba(148, 164, 255, 0.28);
+      }
+
+      .status-button:hover {
+        background: rgba(101, 124, 255, 0.32);
+      }
+
+      .status-button.is-active {
+        background: #657cff;
+        border-color: transparent;
+      }
+
+      .token-row__slider {
+        display: grid;
+        gap: 6px;
+      }
+
+      .token-row__slider-value {
+        color: #ffd978;
+        font-size: 13px;
+        font-weight: 700;
       }
 
       .ui-slider {
@@ -186,65 +228,25 @@
         background: #ffd978;
         box-shadow: 0 0 0 6px rgba(255, 217, 120, 0.14);
       }
-
-      .flying-row__controls {
-        display: flex;
-        gap: 8px;
-      }
-
-      .flying-row__controls button {
-        width: auto;
-        min-width: 52px;
-        padding-inline: 10px;
-        background: rgba(101, 124, 255, 0.2);
-        border: 1px solid rgba(148, 164, 255, 0.28);
-      }
-
-      .flying-row__controls button:hover {
-        background: rgba(101, 124, 255, 0.32);
-      }
-
-      .shadow-controls {
-        display: grid;
-        gap: 12px;
-      }
-
-      .shadow-control {
-        display: grid;
-        gap: 6px;
-      }
-
-      .shadow-control__header {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 12px;
-        font-size: 13px;
-      }
-
-      .shadow-control__value {
-        color: #ffd978;
-        font-weight: 700;
-      }
-
-      .flying-row__secondary-action {
-        min-width: 68px;
-      }
-
     </style>
   </head>
   <body>
     <main>
-      <section class="stack">
-        <h2>Shadow Tuning</h2>
-        <p>Preview shadow shape, offset, blur, and transparency live before choosing final values.</p>
-        <div id="shadow-controls" class="shadow-controls"></div>
+      <div class="tab-bar">
+        <button type="button" class="tab-button" data-tab-target="selected">Selected</button>
+        <button type="button" class="tab-button" data-tab-target="scene">Token Status</button>
+      </div>
+
+      <section id="tab-panel-selected" class="stack">
+        <h2>Selected</h2>
+        <p id="selected-token-empty">Select a character token in the scene.</p>
+        <ul id="selected-token-list" class="token-list"></ul>
       </section>
 
-      <section class="stack">
+      <section id="tab-panel-scene" class="stack" hidden>
         <h2>Token Status</h2>
-        <p id="flying-empty">No active token statuses in this scene.</p>
-        <ul id="flying-list" class="flying-list"></ul>
+        <p id="scene-token-empty">No character tokens in this scene.</p>
+        <ul id="scene-token-list" class="token-list"></ul>
       </section>
     </main>
     <script type="module" src="/src/main.js"></script>
