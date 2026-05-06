@@ -29,6 +29,7 @@ const DEFAULT_SHADOW_SETTINGS = {
 };
 
 let currentShadowSettings = { ...DEFAULT_SHADOW_SETTINGS };
+const imageProfileCache = new Map();
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -60,6 +61,90 @@ export function getShadowSettings() {
 export function applyShadowSettings(settings = currentShadowSettings) {
   currentShadowSettings = normalizeShadowSettings(settings);
   return getShadowSettings();
+}
+
+function getFallbackImageProfile() {
+  return {
+    widthRatio: 1,
+    heightRatio: 1,
+    centerOffsetXRatio: 0,
+    centerOffsetYRatio: 0,
+  };
+}
+
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Failed to load image profile for ${url}`));
+    image.src = url;
+  });
+}
+
+async function getVisibleImageProfile(item) {
+  const imageUrl = item?.image?.url;
+  if (!imageUrl) {
+    return getFallbackImageProfile();
+  }
+
+  const cacheKey = `${imageUrl}|${item?.image?.width ?? 0}|${item?.image?.height ?? 0}`;
+  if (imageProfileCache.has(cacheKey)) {
+    return imageProfileCache.get(cacheKey);
+  }
+
+  const profilePromise = (async () => {
+    try {
+      const image = await loadImage(imageUrl);
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth || image.width;
+      canvas.height = image.naturalHeight || image.height;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+
+      if (!context || canvas.width === 0 || canvas.height === 0) {
+        return getFallbackImageProfile();
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+      let minX = canvas.width;
+      let minY = canvas.height;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < canvas.height; y += 1) {
+        for (let x = 0; x < canvas.width; x += 1) {
+          const alpha = data[(y * canvas.width + x) * 4 + 3];
+          if (alpha <= 8) continue;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        return getFallbackImageProfile();
+      }
+
+      const visibleWidth = maxX - minX + 1;
+      const visibleHeight = maxY - minY + 1;
+      const visibleCenterX = minX + visibleWidth / 2;
+      const visibleCenterY = minY + visibleHeight / 2;
+
+      return {
+        widthRatio: visibleWidth / canvas.width,
+        heightRatio: visibleHeight / canvas.height,
+        centerOffsetXRatio: visibleCenterX / canvas.width - 0.5,
+        centerOffsetYRatio: visibleCenterY / canvas.height - 0.5,
+      };
+    } catch {
+      return getFallbackImageProfile();
+    }
+  })();
+
+  imageProfileCache.set(cacheKey, profilePromise);
+  return profilePromise;
 }
 
 function getShadowId(itemId, layerKey) {
@@ -97,14 +182,34 @@ function getScaleAtHeight(zFeet, baseScaleAt5Ft) {
   );
 }
 
-function getTokenSize(item, bounds) {
+function getTokenVisualMetrics(item, profile) {
+  const fullDisplayWidth = Math.abs(
+    Number(item?.image?.width ?? item?.shape?.width ?? item?.width ?? 100) *
+      Number(item?.scale?.x ?? 1),
+  );
+  const fullDisplayHeight = Math.abs(
+    Number(item?.image?.height ?? item?.shape?.height ?? item?.height ?? 100) *
+      Number(item?.scale?.y ?? 1),
+  );
+  const center = item?.position ?? { x: 0, y: 0 };
+
+  return {
+    fullDisplayWidth,
+    fullDisplayHeight,
+    visibleDisplayWidth: fullDisplayWidth * profile.widthRatio,
+    visibleDisplayHeight: fullDisplayHeight * profile.heightRatio,
+    visibleCenterX: Number(center.x ?? 0) + fullDisplayWidth * profile.centerOffsetXRatio,
+    visibleCenterY: Number(center.y ?? 0) + fullDisplayHeight * profile.centerOffsetYRatio,
+  };
+}
+
+function getTokenSize(item, profile) {
   const settings = currentShadowSettings;
-  const width = Number(bounds?.width ?? item?.image?.width ?? item?.shape?.width ?? item?.width ?? 100);
-  const height = Number(bounds?.height ?? item?.image?.height ?? item?.shape?.height ?? item?.height ?? 100);
+  const metrics = getTokenVisualMetrics(item, profile);
   const zFeet = getItemZFeet(item);
   const flyingTokenScaleMultiplier = 1 + (zFeet / Z_STEP_FEET) * SCALE_PER_5_FEET;
-  const baseWidth = Math.abs(width / flyingTokenScaleMultiplier);
-  const baseHeight = Math.abs(height / flyingTokenScaleMultiplier);
+  const baseWidth = Math.abs(metrics.visibleDisplayWidth / flyingTokenScaleMultiplier);
+  const baseHeight = Math.abs(metrics.visibleDisplayHeight / flyingTokenScaleMultiplier);
   const widthScale = getScaleAtHeight(zFeet, settings.widthScaleAt5Ft);
   const heightScale = getScaleAtHeight(zFeet, settings.heightScaleAt5Ft);
 
@@ -129,13 +234,13 @@ function roundToNearestGridSquare(value, gridDpi) {
   return Math.max(numericGridDpi, Math.round(numericValue / numericGridDpi) * numericGridDpi);
 }
 
-function getShadowPosition(item, bounds, size) {
+function getShadowPosition(item, profile, size) {
   const settings = currentShadowSettings;
-  const center = item?.position ?? { x: 0, y: 0 };
+  const metrics = getTokenVisualMetrics(item, profile);
   const offset = getShadowOffset(item);
   return {
-    x: Number(center.x ?? 0) + offset.x,
-    y: Number(center.y ?? 0) + offset.y + size.height * settings.yOffsetRatio,
+    x: metrics.visibleCenterX + offset.x,
+    y: metrics.visibleCenterY + offset.y + size.height * settings.yOffsetRatio,
   };
 }
 
@@ -164,14 +269,14 @@ function getShadowZIndex(owner, allItems, layerDef) {
   return Math.min(ownerZIndex + layerDef.zOffset, highestRelevantZIndex + 0.1);
 }
 
-function buildLocalShadowLayers(item, allItems, bounds, gridDpi) {
+function buildLocalShadowLayers(item, allItems, profile, gridDpi) {
   const settings = currentShadowSettings;
-  const rawSize = getTokenSize(item, bounds);
+  const rawSize = getTokenSize(item, profile);
   const size = {
     width: roundToNearestGridSquare(rawSize.width, gridDpi),
     height: roundToNearestGridSquare(rawSize.height, gridDpi),
   };
-  const position = getShadowPosition(item, bounds, size);
+  const position = getShadowPosition(item, profile, size);
 
   return SHADOW_LAYER_DEFS.map((layerDef) => {
     const spread = getLayerSpread(layerDef, settings.softness);
@@ -250,19 +355,14 @@ export async function syncLocalShadows(items) {
 
   const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
   const itemsToAdd = [];
-  const boundsById = new Map();
+  const profileById = new Map();
 
   for (const item of flyingItems) {
-    try {
-      const bounds = await OBR.scene.items.getItemBounds([item.id]);
-      boundsById.set(item.id, bounds);
-    } catch {
-      boundsById.set(item.id, null);
-    }
+    profileById.set(item.id, await getVisibleImageProfile(item));
   }
 
   for (const item of flyingItems) {
-    const shadowLayers = buildLocalShadowLayers(item, items, boundsById.get(item.id), gridDpi);
+    const shadowLayers = buildLocalShadowLayers(item, items, profileById.get(item.id), gridDpi);
 
     for (const shadow of shadowLayers) {
       const existingShadow = localItemsById.get(shadow.id);
