@@ -17,9 +17,11 @@ const FLYING_WING_GRID = {
   offset: { x: 0, y: 0 },
 };
 const LABEL_GAP = 28;
-const WING_GAP = 88;
-const WING_WIDTH = 52;
-const WING_HEIGHT = 39;
+const WING_TEXT_GAP = 10;
+const WING_WIDTH = 40;
+const WING_HEIGHT = 54;
+const LABEL_FONT_SIZE = 60;
+const LABEL_CHAR_WIDTH = 31;
 
 function getFlyingLabelId(itemId) {
   return `${FLYING_LABEL_ID_PREFIX}${itemId}/text`;
@@ -31,6 +33,10 @@ function getFlyingWingId(itemId, side) {
 
 function getFlyingLabelText(item) {
   return `${getItemZFeet(item)} ft`;
+}
+
+function getEstimatedLabelWidth(text) {
+  return Math.max(90, text.length * LABEL_CHAR_WIDTH);
 }
 
 function getDisplayedTokenHeight(item, bounds) {
@@ -49,16 +55,17 @@ function getFlyingLabelAnchor(item, bounds) {
 }
 
 function buildFlyingTextLabel(item, bounds) {
+  const text = getFlyingLabelText(item);
   return buildText()
     .id(getFlyingLabelId(item.id))
     .name("Flying Height")
     .position(getFlyingLabelAnchor(item, bounds))
-    .plainText(getFlyingLabelText(item))
+    .plainText(text)
     .textType("PLAIN")
     .width("AUTO")
     .height("AUTO")
     .fontFamily("Roboto")
-    .fontSize(60)
+    .fontSize(LABEL_FONT_SIZE)
     .fontWeight(700)
     .textAlign("CENTER")
     .textAlignVertical("MIDDLE")
@@ -86,12 +93,13 @@ function buildFlyingTextLabel(item, bounds) {
 
 function buildFlyingWing(item, bounds, side) {
   const anchor = getFlyingLabelAnchor(item, bounds);
+  const textWidth = getEstimatedLabelWidth(getFlyingLabelText(item));
   const direction = side === "left" ? -1 : 1;
   return buildImage(FLYING_WING_IMAGE, FLYING_WING_GRID)
     .id(getFlyingWingId(item.id, side))
     .name("Flying Wing")
     .position({
-      x: anchor.x + direction * WING_GAP,
+      x: anchor.x + direction * (textWidth / 2 + WING_TEXT_GAP + WING_WIDTH / 2),
       y: anchor.y - 2,
     })
     .scale({
