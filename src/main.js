@@ -1,7 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { isDead, toggleDeadForItems } from "./dead.js";
-import { DEAD_VISUAL_NS, syncLocalDeadVisuals } from "./deadVisuals.js";
-import { syncLocalFlyingLabels } from "./flyingLabel.js";
+import { DEAD_VISUAL_NS } from "./deadVisuals.js";
 import {
   getItemLabel,
   getItemZFeet,
@@ -9,13 +8,13 @@ import {
   setFlyingHeight,
   toggleFlyingForItems,
 } from "./flying.js";
-import { syncLocalShadows } from "./shadow.js";
 import { getRegisteredStatusDefinitions } from "./statusRegistry.js";
 
 const state = {
   items: [],
   sceneReady: false,
   selectedIds: [],
+  lastSelectedCharacterId: null,
 };
 
 function isSceneCharacterToken(item) {
@@ -42,12 +41,22 @@ function getCharacterItems() {
 }
 
 function getSelectedCharacterItems() {
-  if (state.selectedIds.length === 0) {
+  const selectedIdSet = new Set(state.selectedIds);
+  const selectedItems = getCharacterItems().filter((item) => selectedIdSet.has(item.id));
+
+  if (selectedItems.length > 0) {
+    return selectedItems;
+  }
+
+  if (!state.lastSelectedCharacterId) {
     return [];
   }
 
-  const selectedIdSet = new Set(state.selectedIds);
-  return getCharacterItems().filter((item) => selectedIdSet.has(item.id));
+  const lastSelectedItem = getCharacterItems().find(
+    (item) => item.id === state.lastSelectedCharacterId,
+  );
+
+  return lastSelectedItem ? [lastSelectedItem] : [];
 }
 
 function getStatusSummary(item) {
@@ -227,6 +236,22 @@ async function refreshSelection() {
     state.selectedIds = [];
   }
 
+  const selectedIdSet = new Set(state.selectedIds);
+  const currentSelectedCharacter = getCharacterItems().find((item) =>
+    selectedIdSet.has(item.id),
+  );
+
+  if (currentSelectedCharacter) {
+    state.lastSelectedCharacterId = currentSelectedCharacter.id;
+  }
+
+  if (
+    state.lastSelectedCharacterId &&
+    !state.items.some((item) => item.id === state.lastSelectedCharacterId)
+  ) {
+    state.lastSelectedCharacterId = null;
+  }
+
   render();
 }
 
@@ -250,9 +275,6 @@ async function refreshItems() {
     throw error;
   }
 
-  await syncLocalDeadVisuals(state.items);
-  await syncLocalFlyingLabels(state.items);
-  await syncLocalShadows(state.items);
   render();
 }
 
@@ -312,13 +334,13 @@ OBR.onReady(() => {
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
-    Promise.resolve()
-      .then(async () => {
-        await syncLocalDeadVisuals(state.items);
-        await syncLocalFlyingLabels(state.items);
-        await syncLocalShadows(state.items);
-      })
-      .then(render);
+    if (
+      state.lastSelectedCharacterId &&
+      !state.items.some((item) => item.id === state.lastSelectedCharacterId)
+    ) {
+      state.lastSelectedCharacterId = null;
+    }
+    render();
   });
 
   OBR.scene.onReadyChange(async (ready) => {

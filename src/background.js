@@ -3,7 +3,6 @@ import {
   hasAnimatingDeadVisuals,
   syncLocalDeadVisuals,
 } from "./deadVisuals.js";
-import { setupContextMenu } from "./contextMenu.js";
 import { clearLocalFlyingLabels, syncLocalFlyingLabels } from "./flyingLabel.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
 
@@ -15,6 +14,42 @@ const state = {
 };
 
 let animationIntervalId = 0;
+let syncInFlight = false;
+let syncQueued = false;
+
+async function syncRuntimeVisuals(items = state.items) {
+  await syncLocalDeadVisuals(items);
+  await syncLocalFlyingLabels(items);
+  await syncLocalShadows(items);
+}
+
+function scheduleRuntimeSync(items = state.items) {
+  state.items = items;
+
+  if (!state.sceneReady) {
+    return;
+  }
+
+  if (syncInFlight) {
+    syncQueued = true;
+    return;
+  }
+
+  syncInFlight = true;
+  Promise.resolve()
+    .then(async () => {
+      await syncRuntimeVisuals(state.items);
+    })
+    .finally(() => {
+      syncInFlight = false;
+      if (!syncQueued) {
+        return;
+      }
+
+      syncQueued = false;
+      scheduleRuntimeSync(state.items);
+    });
+}
 
 async function refreshItems() {
   if (!state.sceneReady) {
@@ -34,9 +69,7 @@ async function refreshItems() {
     throw error;
   }
 
-  await syncLocalDeadVisuals(state.items);
-  await syncLocalFlyingLabels(state.items);
-  await syncLocalShadows(state.items);
+  await syncRuntimeVisuals(state.items);
 }
 
 async function runDeadAnimationTick() {
@@ -68,16 +101,9 @@ function startAnimationLoop() {
 }
 
 OBR.onReady(() => {
-  setupContextMenu();
-
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
-    state.items = items;
-    Promise.resolve().then(async () => {
-      await syncLocalDeadVisuals(state.items);
-      await syncLocalFlyingLabels(state.items);
-      await syncLocalShadows(state.items);
-    });
+    scheduleRuntimeSync(items);
   });
 
   OBR.scene.onReadyChange(async (ready) => {
