@@ -6,7 +6,7 @@ import { DEAD_STATUS_ID, NS } from "./statusModel.js";
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
 const DEAD_ANIMATION_DURATION_MS = 480;
-const DEAD_SPLAT_SIZE_MULTIPLIER = 3;
+const DEAD_SPLAT_SIZE_MULTIPLIER = 1.7;
 const BLOOD_GRID = {
   dpi: 150,
   offset: { x: 0, y: 0 },
@@ -57,6 +57,25 @@ function getDeterministicSplatFile(itemId) {
   return BLOOD_SPLAT_IDS[hash % BLOOD_SPLAT_IDS.length];
 }
 
+function getDeterministicOffset(itemId) {
+  const id = String(itemId ?? "");
+  let hashX = 0;
+  let hashY = 0;
+
+  for (let index = 0; index < id.length; index += 1) {
+    const code = id.charCodeAt(index);
+    hashX = (hashX * 33 + code) >>> 0;
+    hashY = (hashY * 37 + code) >>> 0;
+  }
+
+  const toRange = (hash) => ((hash % 401) / 1000) - 0.2;
+
+  return {
+    x: toRange(hashX),
+    y: toRange(hashY),
+  };
+}
+
 function getBloodImage(itemId) {
   const file = getDeterministicSplatFile(itemId);
   const url = EXTENSION_ORIGIN
@@ -102,15 +121,16 @@ function getDeadVisualSize(item, bounds, now = Date.now()) {
 
 function getDeadVisualPosition(item, bounds, size) {
   const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
+  const offset = getDeterministicOffset(item.id);
 
   return {
-    x: center.x,
-    y: center.y,
+    x: center.x + size.width * offset.x,
+    y: center.y + size.height * offset.y,
   };
 }
 
 function getDeadVisualZIndex(item) {
-  return Number(item?.zIndex ?? 0) + 0.1;
+  return Number(item?.zIndex ?? 0) - 0.2;
 }
 
 function buildDeadVisual(item, bounds, now = Date.now()) {
