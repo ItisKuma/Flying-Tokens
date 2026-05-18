@@ -6,7 +6,7 @@ import { DEAD_STATUS_ID, NS } from "./statusModel.js";
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
 const DEAD_ANIMATION_DURATION_MS = 480;
-const DEAD_SPLAT_SIZE_MULTIPLIER = 3.6;
+const DEAD_SPLAT_SIZE_MULTIPLIER = 4.8;
 const BLOOD_GRID = {
   dpi: 150,
   offset: { x: 0, y: 0 },
@@ -184,13 +184,13 @@ function getDeadVisualSize(item, bounds, bloodProfile, now = Date.now()) {
 }
 
 function getDeadVisualPosition(item, bounds, size, bloodProfile) {
-  const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
+  const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
   const centerOffsetX = Number(bloodProfile?.centerOffsetX ?? 0);
   const centerOffsetY = Number(bloodProfile?.centerOffsetY ?? 0);
 
   return {
-    x: center.x - size.width * centerOffsetX,
-    y: center.y - size.height * centerOffsetY,
+    x: center.x - size.width * (0.5 + centerOffsetX),
+    y: center.y - size.height * (0.5 + centerOffsetY),
   };
 }
 
