@@ -2,6 +2,7 @@ import OBR from "@owlbear-rodeo/sdk";
 import { isDead, toggleDeadForItems } from "./dead.js";
 import { DEAD_VISUAL_NS } from "./deadVisuals.js";
 import {
+  DEFAULT_Z_FEET,
   getItemLabel,
   getItemZFeet,
   isFlying,
@@ -15,6 +16,7 @@ const state = {
   sceneReady: false,
   selectedIds: [],
   lastSelectedCharacterId: null,
+  busyItemIds: new Set(),
 };
 
 function isSceneCharacterToken(item) {
@@ -78,12 +80,15 @@ function getStatusSummary(item) {
 }
 
 function getStatusButtonConfig(item, statusId) {
+  const isBusy = state.busyItemIds.has(item.id);
+
   if (statusId === "flying") {
     return {
       action: "toggle-status",
       statusId,
       label: isFlying(item) ? "Land" : "Flying",
       active: isFlying(item),
+      disabled: isBusy,
     };
   }
 
@@ -93,6 +98,7 @@ function getStatusButtonConfig(item, statusId) {
       statusId,
       label: isDead(item) ? "Revive" : "Dead",
       active: isDead(item),
+      disabled: isBusy,
     };
   }
 
@@ -101,6 +107,7 @@ function getStatusButtonConfig(item, statusId) {
     statusId,
     label: statusId,
     active: false,
+    disabled: isBusy,
   };
 }
 
@@ -117,6 +124,7 @@ function createStatusButtons(item) {
     button.dataset.action = config.action;
     button.dataset.itemId = item.id;
     button.dataset.statusId = config.statusId;
+    button.disabled = Boolean(config.disabled);
     wrap.append(button);
   }
 
@@ -140,6 +148,7 @@ function createZSlider(item) {
   slider.value = String(getItemZFeet(item));
   slider.dataset.action = "set-z";
   slider.dataset.itemId = item.id;
+  slider.disabled = state.busyItemIds.has(item.id);
 
   wrap.append(value, slider);
   return wrap;
@@ -229,6 +238,87 @@ function render() {
   renderSceneTab();
 }
 
+function setItemBusy(itemId, isBusy) {
+  const nextBusyIds = new Set(state.busyItemIds);
+
+  if (isBusy) {
+    nextBusyIds.add(itemId);
+  } else {
+    nextBusyIds.delete(itemId);
+  }
+
+  state.busyItemIds = nextBusyIds;
+}
+
+function mergeItemsIntoState(updatedItems) {
+  if (!updatedItems || updatedItems.length === 0) {
+    return;
+  }
+
+  const updatedById = new Map(updatedItems.map((item) => [item.id, item]));
+  state.items = state.items.map((item) => updatedById.get(item.id) ?? item);
+}
+
+function applyOptimisticStatusToggle(itemId, statusId) {
+  state.items = state.items.map((item) => {
+    if (item.id !== itemId) {
+      return item;
+    }
+
+    const nextItem = structuredClone(item);
+    nextItem.metadata ??= {};
+    nextItem.metadata["token-status"] ??= { statuses: {} };
+    nextItem.metadata["token-status"].statuses ??= {};
+
+    if (statusId === "dead") {
+      if (isDead(nextItem)) {
+        delete nextItem.metadata["token-status"].statuses.dead;
+      } else {
+        nextItem.metadata["token-status"].statuses.dead = {
+          active: true,
+          appliedAt: Date.now(),
+        };
+      }
+    }
+
+    if (statusId === "flying") {
+      if (isFlying(nextItem)) {
+        delete nextItem.metadata["token-status"].statuses.flying;
+      } else {
+        nextItem.metadata["token-status"].statuses.flying = {
+          active: true,
+          zFeet: DEFAULT_Z_FEET,
+        };
+      }
+    }
+
+    if (Object.keys(nextItem.metadata["token-status"].statuses).length === 0) {
+      delete nextItem.metadata["token-status"];
+    }
+
+    return nextItem;
+  });
+}
+
+function applyOptimisticZChange(itemId, zFeet) {
+  state.items = state.items.map((item) => {
+    if (item.id !== itemId || !isFlying(item)) {
+      return item;
+    }
+
+    const nextItem = structuredClone(item);
+    nextItem.metadata ??= {};
+    nextItem.metadata["token-status"] ??= { statuses: {} };
+    nextItem.metadata["token-status"].statuses ??= {};
+    nextItem.metadata["token-status"].statuses.flying = {
+      ...nextItem.metadata["token-status"].statuses.flying,
+      active: true,
+      zFeet: Number(zFeet),
+    };
+    return nextItem;
+  });
+}
+
 async function refreshSelection() {
   try {
     state.selectedIds = (await OBR.player.getSelection()) ?? [];
@@ -297,9 +387,22 @@ OBR.onReady(() => {
     const item = state.items.find((candidate) => candidate.id === statusButton.dataset.itemId);
     if (!item) return;
 
-    await toggleStatus(item, statusButton.dataset.statusId);
-    await refreshItems();
-    await refreshSelection();
+    if (state.busyItemIds.has(item.id)) {
+      return;
+    }
+
+    setItemBusy(item.id, true);
+    applyOptimisticStatusToggle(item.id, statusButton.dataset.statusId);
+    render();
+
+    try {
+      await toggleStatus(item, statusButton.dataset.statusId);
+      mergeItemsIntoState(await OBR.scene.items.getItems([item.id]));
+      await refreshSelection();
+    } finally {
+      setItemBusy(item.id, false);
+      render();
+    }
   });
 
   document.addEventListener("input", (event) => {
@@ -323,8 +426,21 @@ OBR.onReady(() => {
       return;
     }
 
-    await setFlyingHeight(item.id, slider.value);
-    await refreshItems();
+    if (state.busyItemIds.has(item.id)) {
+      return;
+    }
+
+    setItemBusy(item.id, true);
+    applyOptimisticZChange(item.id, slider.value);
+    render();
+
+    try {
+      await setFlyingHeight(item.id, slider.value);
+      mergeItemsIntoState(await OBR.scene.items.getItems([item.id]));
+    } finally {
+      setItemBusy(item.id, false);
+      render();
+    }
   });
 
   OBR.player.onChange(() => {
