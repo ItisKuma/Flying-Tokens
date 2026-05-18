@@ -6,7 +6,7 @@ import { DEAD_STATUS_ID, NS } from "./statusModel.js";
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
 const DEAD_ANIMATION_DURATION_MS = 480;
-const DEAD_SPLAT_SIZE_MULTIPLIER = 1.7;
+const DEAD_SPLAT_SIZE_MULTIPLIER = 3.6;
 const BLOOD_GRID = {
   dpi: 150,
   offset: { x: 0, y: 0 },
@@ -56,25 +56,6 @@ function getDeterministicSplatFile(itemId) {
   }
 
   return BLOOD_SPLAT_IDS[hash % BLOOD_SPLAT_IDS.length];
-}
-
-function getDeterministicOffset(itemId) {
-  const id = String(itemId ?? "");
-  let hashX = 0;
-  let hashY = 0;
-
-  for (let index = 0; index < id.length; index += 1) {
-    const code = id.charCodeAt(index);
-    hashX = (hashX * 33 + code) >>> 0;
-    hashY = (hashY * 37 + code) >>> 0;
-  }
-
-  const toRange = (hash) => ((hash % 401) / 1000) - 0.2;
-
-  return {
-    x: toRange(hashX),
-    y: toRange(hashY),
-  };
 }
 
 function getBloodImage(itemId) {
@@ -204,13 +185,12 @@ function getDeadVisualSize(item, bounds, bloodProfile, now = Date.now()) {
 
 function getDeadVisualPosition(item, bounds, size, bloodProfile) {
   const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
-  const offset = getDeterministicOffset(item.id);
   const centerOffsetX = Number(bloodProfile?.centerOffsetX ?? 0);
   const centerOffsetY = Number(bloodProfile?.centerOffsetY ?? 0);
 
   return {
-    x: center.x + size.width * (offset.x - centerOffsetX),
-    y: center.y + size.height * (offset.y - centerOffsetY),
+    x: center.x - size.width * centerOffsetX,
+    y: center.y - size.height * centerOffsetY,
   };
 }
 
