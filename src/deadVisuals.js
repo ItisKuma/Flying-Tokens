@@ -32,6 +32,7 @@ const BLOOD_SPLAT_IDS = [
   "blood_splat_17.png",
 ];
 let cachedRolePromise = null;
+const bloodProfileCache = new Map();
 
 function getDeadVisualId(itemId) {
   return `${DEAD_VISUAL_ID_PREFIX}${itemId}`;
@@ -90,6 +91,86 @@ function getBloodImage(itemId) {
   };
 }
 
+async function getBloodProfile(bloodImage) {
+  const cacheKey = bloodImage.url;
+  if (bloodProfileCache.has(cacheKey)) {
+    return bloodProfileCache.get(cacheKey);
+  }
+
+  const profilePromise = new Promise((resolve) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth || bloodImage.width;
+      canvas.height = image.naturalHeight || bloodImage.height;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+
+      if (!context) {
+        resolve({
+          widthRatio: 1,
+          heightRatio: 1,
+          centerOffsetX: 0,
+          centerOffsetY: 0,
+        });
+        return;
+      }
+
+      context.drawImage(image, 0, 0);
+      const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+      let minX = width;
+      let minY = height;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const alpha = data[(y * width + x) * 4 + 3];
+          if (alpha <= 8) continue;
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        resolve({
+          widthRatio: 1,
+          heightRatio: 1,
+          centerOffsetX: 0,
+          centerOffsetY: 0,
+        });
+        return;
+      }
+
+      const visibleWidth = maxX - minX + 1;
+      const visibleHeight = maxY - minY + 1;
+      const visibleCenterX = minX + visibleWidth / 2;
+      const visibleCenterY = minY + visibleHeight / 2;
+
+      resolve({
+        widthRatio: visibleWidth / width,
+        heightRatio: visibleHeight / height,
+        centerOffsetX: visibleCenterX / width - 0.5,
+        centerOffsetY: visibleCenterY / height - 0.5,
+      });
+    };
+    image.onerror = () => {
+      resolve({
+        widthRatio: 1,
+        heightRatio: 1,
+        centerOffsetX: 0,
+        centerOffsetY: 0,
+      });
+    };
+    image.src = bloodImage.url;
+  });
+
+  bloodProfileCache.set(cacheKey, profilePromise);
+  return profilePromise;
+}
+
 function easeOutCubic(value) {
   return 1 - Math.pow(1 - value, 3);
 }
@@ -105,27 +186,31 @@ function getDeadBoundsScale(item, now = Date.now()) {
   return 0.5 + progress * 0.5;
 }
 
-function getDeadVisualSize(item, bounds, now = Date.now()) {
+function getDeadVisualSize(item, bounds, bloodProfile, now = Date.now()) {
   const width = Number(bounds?.width ?? item?.image?.width ?? 100);
   const height = Number(bounds?.height ?? item?.image?.height ?? 100);
   const baseScale = getBaseScale(item);
   const baseWidth = width / Number(baseScale?.x ?? 1);
   const baseHeight = height / Number(baseScale?.y ?? 1);
   const scale = getDeadBoundsScale(item, now);
+  const widthRatio = Math.max(0.01, Number(bloodProfile?.widthRatio ?? 1));
+  const heightRatio = Math.max(0.01, Number(bloodProfile?.heightRatio ?? 1));
 
   return {
-    width: baseWidth * scale * DEAD_SPLAT_SIZE_MULTIPLIER,
-    height: baseHeight * scale * DEAD_SPLAT_SIZE_MULTIPLIER,
+    width: (baseWidth * scale * DEAD_SPLAT_SIZE_MULTIPLIER) / widthRatio,
+    height: (baseHeight * scale * DEAD_SPLAT_SIZE_MULTIPLIER) / heightRatio,
   };
 }
 
-function getDeadVisualPosition(item, bounds, size) {
+function getDeadVisualPosition(item, bounds, size, bloodProfile) {
   const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
   const offset = getDeterministicOffset(item.id);
+  const centerOffsetX = Number(bloodProfile?.centerOffsetX ?? 0);
+  const centerOffsetY = Number(bloodProfile?.centerOffsetY ?? 0);
 
   return {
-    x: center.x + size.width * offset.x,
-    y: center.y + size.height * offset.y,
+    x: center.x + size.width * (offset.x - centerOffsetX),
+    y: center.y + size.height * (offset.y - centerOffsetY),
   };
 }
 
@@ -133,14 +218,15 @@ function getDeadVisualZIndex(item) {
   return Number(item?.zIndex ?? 0) - 0.2;
 }
 
-function buildDeadVisual(item, bounds, now = Date.now()) {
-  const size = getDeadVisualSize(item, bounds, now);
+async function buildDeadVisual(item, bounds, now = Date.now()) {
   const bloodImage = getBloodImage(item.id);
+  const bloodProfile = await getBloodProfile(bloodImage);
+  const size = getDeadVisualSize(item, bounds, bloodProfile, now);
 
   const visual = buildImage(bloodImage, BLOOD_GRID)
     .id(getDeadVisualId(item.id))
     .name("Dead Status Blood")
-    .position(getDeadVisualPosition(item, bounds, size))
+    .position(getDeadVisualPosition(item, bounds, size, bloodProfile))
     .scale({ x: size.width / bloodImage.width, y: size.height / bloodImage.height })
     .layer("CHARACTER")
     .locked(true)
@@ -212,7 +298,7 @@ export async function syncLocalDeadVisuals(items) {
   }
 
   for (const item of deadItems) {
-    const visual = buildDeadVisual(item, boundsById.get(item.id), now);
+    const visual = await buildDeadVisual(item, boundsById.get(item.id), now);
     const existingVisual = localItemsById.get(visual.id);
 
     if (!existingVisual || existingVisual.type !== visual.type) {
