@@ -103,6 +103,9 @@ async function getBloodProfile(bloodImage) {
       let minY = height;
       let maxX = -1;
       let maxY = -1;
+      let alphaTotal = 0;
+      let weightedX = 0;
+      let weightedY = 0;
 
       for (let y = 0; y < height; y += 1) {
         for (let x = 0; x < width; x += 1) {
@@ -112,6 +115,9 @@ async function getBloodProfile(bloodImage) {
           if (y < minY) minY = y;
           if (x > maxX) maxX = x;
           if (y > maxY) maxY = y;
+          alphaTotal += alpha;
+          weightedX += (x + 0.5) * alpha;
+          weightedY += (y + 0.5) * alpha;
         }
       }
 
@@ -127,8 +133,10 @@ async function getBloodProfile(bloodImage) {
 
       const visibleWidth = maxX - minX + 1;
       const visibleHeight = maxY - minY + 1;
-      const visibleCenterX = minX + visibleWidth / 2;
-      const visibleCenterY = minY + visibleHeight / 2;
+      const visibleCenterX =
+        alphaTotal > 0 ? weightedX / alphaTotal : minX + visibleWidth / 2;
+      const visibleCenterY =
+        alphaTotal > 0 ? weightedY / alphaTotal : minY + visibleHeight / 2;
 
       resolve({
         widthRatio: visibleWidth / width,
