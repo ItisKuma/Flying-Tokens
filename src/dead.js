@@ -1,4 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
+import { pickRandomBloodSplat } from "./deadSplats.js";
 import { DEAD_STATUS_ID, getStatusData, removeItemStatusData, setItemStatusData } from "./statusModel.js";
 
 export function getDeadData(item) {
@@ -25,6 +26,7 @@ export async function toggleDeadForItems(items) {
           setItemStatusData(draftItem, DEAD_STATUS_ID, {
             active: true,
             appliedAt: Date.now(),
+            splatFile: pickRandomBloodSplat(),
           });
         }
       });
