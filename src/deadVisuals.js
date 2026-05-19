@@ -56,12 +56,12 @@ function getDeadVisualSize(item, bounds) {
   };
 }
 
-function getDeadVisualPosition(item, bounds, manualOffset = { x: 0, y: 0 }) {
+function getDeadVisualPosition(item, bounds) {
   const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
 
   return {
-    x: center.x + Number(manualOffset?.x ?? 0),
-    y: center.y + Number(manualOffset?.y ?? 0),
+    x: center.x,
+    y: center.y,
   };
 }
 
@@ -69,27 +69,14 @@ function getDeadVisualZIndex(item) {
   return Number(item?.zIndex ?? 0) - 0.2;
 }
 
-function getManualDeadOffset(item, bounds, existingVisual) {
-  if (!existingVisual) {
-    return { x: 0, y: 0 };
-  }
-
-  const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
-  return {
-    x: Number(existingVisual.position?.x ?? center.x) - Number(center.x ?? 0),
-    y: Number(existingVisual.position?.y ?? center.y) - Number(center.y ?? 0),
-  };
-}
-
-async function buildDeadVisual(item, bounds, existingVisual) {
+async function buildDeadVisual(item, bounds) {
   const bloodImage = getBloodImage(item);
   const size = getDeadVisualSize(item, bounds);
-  const manualOffset = getManualDeadOffset(item, bounds, existingVisual);
 
   const visual = buildImage(bloodImage, BLOOD_GRID)
     .id(getDeadVisualId(item.id))
     .name("Dead Status Blood")
-    .position(getDeadVisualPosition(item, bounds, manualOffset))
+    .position(getDeadVisualPosition(item, bounds))
     .scale({ x: size.width / bloodImage.width, y: size.height / bloodImage.height })
     .layer("CHARACTER")
     .locked(false)
@@ -160,7 +147,7 @@ export async function syncLocalDeadVisuals(items) {
 
   for (const item of deadItems) {
     const existingVisual = localItemsById.get(getDeadVisualId(item.id));
-    const visual = await buildDeadVisual(item, boundsById.get(item.id), existingVisual);
+    const visual = await buildDeadVisual(item, boundsById.get(item.id));
 
     if (!existingVisual || existingVisual.type !== visual.type) {
       if (existingVisual?.id) {
