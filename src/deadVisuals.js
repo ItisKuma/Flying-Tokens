@@ -1,14 +1,11 @@
 import OBR, { buildImage } from "@owlbear-rodeo/sdk";
-import { getBaseScale } from "./flying.js";
 import { getDeadData, isDead } from "./dead.js";
 import { BLOOD_SPLAT_IDS } from "./deadSplats.js";
-import { DEAD_STATUS_ID, NS } from "./statusModel.js";
+import { NS } from "./statusModel.js";
 
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
-const DEAD_SPLAT_SIZE_MULTIPLIER = 4.8;
-const DEAD_GRID_OFFSET_X = 2;
-const DEAD_GRID_OFFSET_Y = 1;
+const DEAD_SPLAT_SCALE = 0.25;
 const BLOOD_IMAGE_WIDTH = 512;
 const BLOOD_IMAGE_HEIGHT = 512;
 const BLOOD_GRID = {
@@ -45,26 +42,12 @@ function getBloodImage(item) {
   };
 }
 
-function getDeadVisualSize(item, bounds) {
-  const width = Number(bounds?.width ?? item?.image?.width ?? 100);
-  const height = Number(bounds?.height ?? item?.image?.height ?? 100);
-  const baseScale = getBaseScale(item);
-  const baseWidth = width / Number(baseScale?.x ?? 1);
-  const baseHeight = height / Number(baseScale?.y ?? 1);
-
-  return {
-    width: baseWidth * DEAD_SPLAT_SIZE_MULTIPLIER,
-    height: baseHeight * DEAD_SPLAT_SIZE_MULTIPLIER,
-  };
-}
-
-function getDeadVisualPosition(item, bounds, gridDpi) {
+function getDeadVisualPosition(item, bounds) {
   const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
-  const squareSize = Number.isFinite(Number(gridDpi)) && Number(gridDpi) > 0 ? Number(gridDpi) : 150;
 
   return {
-    x: center.x + squareSize * DEAD_GRID_OFFSET_X,
-    y: center.y + squareSize * DEAD_GRID_OFFSET_Y,
+    x: center.x,
+    y: center.y,
   };
 }
 
@@ -72,15 +55,14 @@ function getDeadVisualZIndex(item) {
   return Number(item?.zIndex ?? 0) - 0.2;
 }
 
-async function buildDeadVisual(item, bounds, gridDpi) {
+async function buildDeadVisual(item, bounds) {
   const bloodImage = getBloodImage(item);
-  const size = getDeadVisualSize(item, bounds);
 
   const visual = buildImage(bloodImage, BLOOD_GRID)
     .id(getDeadVisualId(item.id))
     .name("Dead Status Blood")
-    .position(getDeadVisualPosition(item, bounds, gridDpi))
-    .scale({ x: size.width / bloodImage.width, y: size.height / bloodImage.height })
+    .position(getDeadVisualPosition(item, bounds))
+    .scale({ x: DEAD_SPLAT_SCALE, y: DEAD_SPLAT_SCALE })
     .layer("CHARACTER")
     .locked(false)
     .disableHit(false)
@@ -139,14 +121,6 @@ export async function syncLocalDeadVisuals(items) {
   const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
   const itemsToAdd = [];
   const boundsById = new Map();
-  let gridDpi = 150;
-
-  try {
-    gridDpi = await OBR.scene.grid.getDpi();
-  } catch {
-    gridDpi = 150;
-  }
-
   for (const item of deadItems) {
     try {
       const bounds = await OBR.scene.items.getItemBounds([item.id]);
@@ -158,7 +132,7 @@ export async function syncLocalDeadVisuals(items) {
 
   for (const item of deadItems) {
     const existingVisual = localItemsById.get(getDeadVisualId(item.id));
-    const visual = await buildDeadVisual(item, boundsById.get(item.id), gridDpi);
+    const visual = await buildDeadVisual(item, boundsById.get(item.id));
 
     if (!existingVisual || existingVisual.type !== visual.type) {
       if (existingVisual?.id) {
