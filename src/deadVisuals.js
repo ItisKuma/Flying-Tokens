@@ -7,7 +7,7 @@ import { DEAD_STATUS_ID, NS } from "./statusModel.js";
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
 const DEAD_SPLAT_SIZE_MULTIPLIER = 4.8;
-const DEAD_GRID_OFFSET_X = -2;
+const DEAD_GRID_OFFSET_X = 2;
 const DEAD_GRID_OFFSET_Y = 1;
 const BLOOD_IMAGE_WIDTH = 512;
 const BLOOD_IMAGE_HEIGHT = 512;
