@@ -7,9 +7,11 @@ import { DEAD_STATUS_ID, NS } from "./statusModel.js";
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
 const DEAD_SPLAT_SIZE_MULTIPLIER = 4.8;
+const BLOOD_IMAGE_WIDTH = 512;
+const BLOOD_IMAGE_HEIGHT = 512;
 const BLOOD_GRID = {
   dpi: 150,
-  offset: { x: 0, y: 0 },
+  offset: { x: BLOOD_IMAGE_WIDTH / 2, y: BLOOD_IMAGE_HEIGHT / 2 },
 };
 const EXTENSION_ORIGIN = globalThis.location?.origin ?? "";
 let cachedRolePromise = null;
@@ -36,8 +38,8 @@ function getBloodImage(item) {
 
   return {
     url,
-    width: 512,
-    height: 512,
+    width: BLOOD_IMAGE_WIDTH,
+    height: BLOOD_IMAGE_HEIGHT,
     mime: "image/png",
   };
 }
