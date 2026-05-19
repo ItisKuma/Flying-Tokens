@@ -81,8 +81,6 @@ async function getBloodProfile(bloodImage) {
         resolve({
           widthRatio: 1,
           heightRatio: 1,
-          centerXRatio: 0.5,
-          centerYRatio: 0.5,
         });
         return;
       }
@@ -93,9 +91,6 @@ async function getBloodProfile(bloodImage) {
       let minY = height;
       let maxX = -1;
       let maxY = -1;
-      let alphaTotal = 0;
-      let weightedX = 0;
-      let weightedY = 0;
 
       for (let y = 0; y < height; y += 1) {
         for (let x = 0; x < width; x += 1) {
@@ -105,9 +100,6 @@ async function getBloodProfile(bloodImage) {
           if (y < minY) minY = y;
           if (x > maxX) maxX = x;
           if (y > maxY) maxY = y;
-          alphaTotal += alpha;
-          weightedX += (x + 0.5) * alpha;
-          weightedY += (y + 0.5) * alpha;
         }
       }
 
@@ -115,32 +107,22 @@ async function getBloodProfile(bloodImage) {
         resolve({
           widthRatio: 1,
           heightRatio: 1,
-          centerXRatio: 0.5,
-          centerYRatio: 0.5,
         });
         return;
       }
 
       const visibleWidth = maxX - minX + 1;
       const visibleHeight = maxY - minY + 1;
-      const visibleCenterX =
-        alphaTotal > 0 ? weightedX / alphaTotal : minX + visibleWidth / 2;
-      const visibleCenterY =
-        alphaTotal > 0 ? weightedY / alphaTotal : minY + visibleHeight / 2;
 
       resolve({
         widthRatio: visibleWidth / width,
         heightRatio: visibleHeight / height,
-        centerXRatio: visibleCenterX / width,
-        centerYRatio: visibleCenterY / height,
       });
     };
     image.onerror = () => {
       resolve({
         widthRatio: 1,
         heightRatio: 1,
-        centerXRatio: 0.5,
-        centerYRatio: 0.5,
       });
     };
     image.src = bloodImage.url;
@@ -181,14 +163,12 @@ function getDeadVisualSize(item, bounds, bloodProfile, now = Date.now()) {
   };
 }
 
-function getDeadVisualPosition(item, bounds, size, bloodProfile) {
+function getDeadVisualPosition(item, bounds) {
   const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
-  const centerXRatio = Number(bloodProfile?.centerXRatio ?? 0.5);
-  const centerYRatio = Number(bloodProfile?.centerYRatio ?? 0.5);
 
   return {
-    x: center.x - size.width * (centerXRatio - 0.5),
-    y: center.y - size.height * (centerYRatio - 0.5),
+    x: center.x,
+    y: center.y,
   };
 }
 
@@ -204,7 +184,7 @@ async function buildDeadVisual(item, bounds, now = Date.now()) {
   const visual = buildImage(bloodImage, BLOOD_GRID)
     .id(getDeadVisualId(item.id))
     .name("Dead Status Blood")
-    .position(getDeadVisualPosition(item, bounds, size, bloodProfile))
+    .position(getDeadVisualPosition(item, bounds))
     .scale({ x: size.width / bloodImage.width, y: size.height / bloodImage.height })
     .layer("CHARACTER")
     .locked(true)
