@@ -5,7 +5,6 @@ import { DEAD_STATUS_ID, NS } from "./statusModel.js";
 
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
-const DEAD_ANIMATION_DURATION_MS = 480;
 const DEAD_SPLAT_SIZE_MULTIPLIER = 4.8;
 const BLOOD_GRID = {
   dpi: 150,
@@ -132,34 +131,18 @@ async function getBloodProfile(bloodImage) {
   return profilePromise;
 }
 
-function easeOutCubic(value) {
-  return 1 - Math.pow(1 - value, 3);
-}
-
-function getProgress(item, now = Date.now()) {
-  const appliedAt = Number(item?.metadata?.[NS]?.statuses?.[DEAD_STATUS_ID]?.appliedAt ?? now);
-  const elapsed = Math.max(0, now - appliedAt);
-  return Math.min(1, elapsed / DEAD_ANIMATION_DURATION_MS);
-}
-
-function getDeadBoundsScale(item, now = Date.now()) {
-  const progress = easeOutCubic(getProgress(item, now));
-  return 0.5 + progress * 0.5;
-}
-
-function getDeadVisualSize(item, bounds, bloodProfile, now = Date.now()) {
+function getDeadVisualSize(item, bounds, bloodProfile) {
   const width = Number(bounds?.width ?? item?.image?.width ?? 100);
   const height = Number(bounds?.height ?? item?.image?.height ?? 100);
   const baseScale = getBaseScale(item);
   const baseWidth = width / Number(baseScale?.x ?? 1);
   const baseHeight = height / Number(baseScale?.y ?? 1);
-  const scale = getDeadBoundsScale(item, now);
   const widthRatio = Math.max(0.01, Number(bloodProfile?.widthRatio ?? 1));
   const heightRatio = Math.max(0.01, Number(bloodProfile?.heightRatio ?? 1));
 
   return {
-    width: (baseWidth * scale * DEAD_SPLAT_SIZE_MULTIPLIER) / widthRatio,
-    height: (baseHeight * scale * DEAD_SPLAT_SIZE_MULTIPLIER) / heightRatio,
+    width: (baseWidth * DEAD_SPLAT_SIZE_MULTIPLIER) / widthRatio,
+    height: (baseHeight * DEAD_SPLAT_SIZE_MULTIPLIER) / heightRatio,
   };
 }
 
@@ -176,10 +159,10 @@ function getDeadVisualZIndex(item) {
   return Number(item?.zIndex ?? 0) - 0.2;
 }
 
-async function buildDeadVisual(item, bounds, now = Date.now()) {
+async function buildDeadVisual(item, bounds) {
   const bloodImage = getBloodImage(item.id);
   const bloodProfile = await getBloodProfile(bloodImage);
-  const size = getDeadVisualSize(item, bounds, bloodProfile, now);
+  const size = getDeadVisualSize(item, bounds, bloodProfile);
 
   const visual = buildImage(bloodImage, BLOOD_GRID)
     .id(getDeadVisualId(item.id))
@@ -212,8 +195,8 @@ export async function clearLocalDeadVisuals() {
   await OBR.scene.items.deleteItems(localItems.map((item) => item.id));
 }
 
-export function hasAnimatingDeadVisuals(items, now = Date.now()) {
-  return items.some((item) => isDead(item) && getProgress(item, now) < 1);
+export function hasAnimatingDeadVisuals() {
+  return false;
 }
 
 export async function syncLocalDeadVisuals(items) {
@@ -244,8 +227,6 @@ export async function syncLocalDeadVisuals(items) {
   const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
   const itemsToAdd = [];
   const boundsById = new Map();
-  const now = Date.now();
-
   for (const item of deadItems) {
     try {
       const bounds = await OBR.scene.items.getItemBounds([item.id]);
@@ -256,7 +237,7 @@ export async function syncLocalDeadVisuals(items) {
   }
 
   for (const item of deadItems) {
-    const visual = await buildDeadVisual(item, boundsById.get(item.id), now);
+    const visual = await buildDeadVisual(item, boundsById.get(item.id));
     const existingVisual = localItemsById.get(visual.id);
 
     if (!existingVisual || existingVisual.type !== visual.type) {
