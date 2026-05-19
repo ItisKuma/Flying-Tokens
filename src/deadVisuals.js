@@ -81,8 +81,8 @@ async function getBloodProfile(bloodImage) {
         resolve({
           widthRatio: 1,
           heightRatio: 1,
-          centerOffsetX: 0,
-          centerOffsetY: 0,
+          centerXRatio: 0.5,
+          centerYRatio: 0.5,
         });
         return;
       }
@@ -115,8 +115,8 @@ async function getBloodProfile(bloodImage) {
         resolve({
           widthRatio: 1,
           heightRatio: 1,
-          centerOffsetX: 0,
-          centerOffsetY: 0,
+          centerXRatio: 0.5,
+          centerYRatio: 0.5,
         });
         return;
       }
@@ -131,16 +131,16 @@ async function getBloodProfile(bloodImage) {
       resolve({
         widthRatio: visibleWidth / width,
         heightRatio: visibleHeight / height,
-        centerOffsetX: visibleCenterX / width - 0.5,
-        centerOffsetY: visibleCenterY / height - 0.5,
+        centerXRatio: visibleCenterX / width,
+        centerYRatio: visibleCenterY / height,
       });
     };
     image.onerror = () => {
       resolve({
         widthRatio: 1,
         heightRatio: 1,
-        centerOffsetX: 0,
-        centerOffsetY: 0,
+        centerXRatio: 0.5,
+        centerYRatio: 0.5,
       });
     };
     image.src = bloodImage.url;
@@ -183,12 +183,12 @@ function getDeadVisualSize(item, bounds, bloodProfile, now = Date.now()) {
 
 function getDeadVisualPosition(item, bounds, size, bloodProfile) {
   const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
-  const centerOffsetX = Number(bloodProfile?.centerOffsetX ?? 0);
-  const centerOffsetY = Number(bloodProfile?.centerOffsetY ?? 0);
+  const centerXRatio = Number(bloodProfile?.centerXRatio ?? 0.5);
+  const centerYRatio = Number(bloodProfile?.centerYRatio ?? 0.5);
 
   return {
-    x: center.x - size.width * centerOffsetX,
-    y: center.y - size.height * centerOffsetY,
+    x: center.x - size.width * centerXRatio,
+    y: center.y - size.height * centerYRatio,
   };
 }
 
