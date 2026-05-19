@@ -1,10 +1,12 @@
 import OBR, { buildImage } from "@owlbear-rodeo/sdk";
+import { getBaseScale } from "./flying.js";
 import { getDeadData, isDead } from "./dead.js";
 import { BLOOD_SPLAT_IDS } from "./deadSplats.js";
 import { DEAD_STATUS_ID, NS } from "./statusModel.js";
 
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
+const DEAD_SPLAT_SIZE_MULTIPLIER = 4.8;
 const DEAD_GRID_OFFSET_X = 2;
 const DEAD_GRID_OFFSET_Y = 1;
 const BLOOD_IMAGE_WIDTH = 512;
@@ -43,6 +45,19 @@ function getBloodImage(item) {
   };
 }
 
+function getDeadVisualSize(item, bounds) {
+  const width = Number(bounds?.width ?? item?.image?.width ?? 100);
+  const height = Number(bounds?.height ?? item?.image?.height ?? 100);
+  const baseScale = getBaseScale(item);
+  const baseWidth = width / Number(baseScale?.x ?? 1);
+  const baseHeight = height / Number(baseScale?.y ?? 1);
+
+  return {
+    width: baseWidth * DEAD_SPLAT_SIZE_MULTIPLIER,
+    height: baseHeight * DEAD_SPLAT_SIZE_MULTIPLIER,
+  };
+}
+
 function getDeadVisualPosition(item, bounds, gridDpi) {
   const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
   const squareSize = Number.isFinite(Number(gridDpi)) && Number(gridDpi) > 0 ? Number(gridDpi) : 150;
@@ -59,12 +74,13 @@ function getDeadVisualZIndex(item) {
 
 async function buildDeadVisual(item, bounds, gridDpi) {
   const bloodImage = getBloodImage(item);
+  const size = getDeadVisualSize(item, bounds);
 
   const visual = buildImage(bloodImage, BLOOD_GRID)
     .id(getDeadVisualId(item.id))
     .name("Dead Status Blood")
     .position(getDeadVisualPosition(item, bounds, gridDpi))
-    .scale({ x: 1, y: 1 })
+    .scale({ x: size.width / bloodImage.width, y: size.height / bloodImage.height })
     .layer("CHARACTER")
     .locked(false)
     .disableHit(false)
