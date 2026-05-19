@@ -129,12 +129,12 @@ function getDeadVisualSize(item, bounds, bloodProfile) {
   };
 }
 
-function getDeadVisualPosition(item, bounds) {
+function getDeadVisualPosition(item, bounds, manualOffset = { x: 0, y: 0 }) {
   const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
 
   return {
-    x: center.x,
-    y: center.y,
+    x: center.x + Number(manualOffset?.x ?? 0),
+    y: center.y + Number(manualOffset?.y ?? 0),
   };
 }
 
@@ -142,19 +142,32 @@ function getDeadVisualZIndex(item) {
   return Number(item?.zIndex ?? 0) - 0.2;
 }
 
-async function buildDeadVisual(item, bounds) {
+function getManualDeadOffset(item, bounds, existingVisual) {
+  if (!existingVisual) {
+    return { x: 0, y: 0 };
+  }
+
+  const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
+  return {
+    x: Number(existingVisual.position?.x ?? center.x) - Number(center.x ?? 0),
+    y: Number(existingVisual.position?.y ?? center.y) - Number(center.y ?? 0),
+  };
+}
+
+async function buildDeadVisual(item, bounds, existingVisual) {
   const bloodImage = getBloodImage(item);
   const bloodProfile = await getBloodProfile(bloodImage);
   const size = getDeadVisualSize(item, bounds, bloodProfile);
+  const manualOffset = getManualDeadOffset(item, bounds, existingVisual);
 
   const visual = buildImage(bloodImage, BLOOD_GRID)
     .id(getDeadVisualId(item.id))
     .name("Dead Status Blood")
-    .position(getDeadVisualPosition(item, bounds))
+    .position(getDeadVisualPosition(item, bounds, manualOffset))
     .scale({ x: size.width / bloodImage.width, y: size.height / bloodImage.height })
     .layer("CHARACTER")
-    .locked(true)
-    .disableHit(true)
+    .locked(false)
+    .disableHit(false)
     .disableAutoZIndex(true)
     .metadata({
       [DEAD_VISUAL_NS]: {
@@ -220,8 +233,8 @@ export async function syncLocalDeadVisuals(items) {
   }
 
   for (const item of deadItems) {
-    const visual = await buildDeadVisual(item, boundsById.get(item.id));
-    const existingVisual = localItemsById.get(visual.id);
+    const existingVisual = localItemsById.get(getDeadVisualId(item.id));
+    const visual = await buildDeadVisual(item, boundsById.get(item.id), existingVisual);
 
     if (!existingVisual || existingVisual.type !== visual.type) {
       if (existingVisual?.id) {
