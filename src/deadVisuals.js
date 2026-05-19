@@ -15,7 +15,6 @@ const BLOOD_GRID = {
 };
 const EXTENSION_ORIGIN = globalThis.location?.origin ?? "";
 let cachedRolePromise = null;
-const bloodProfileCache = new Map();
 
 function getDeadVisualId(itemId) {
   return `${DEAD_VISUAL_ID_PREFIX}${itemId}`;
@@ -44,88 +43,16 @@ function getBloodImage(item) {
   };
 }
 
-async function getBloodProfile(bloodImage) {
-  const cacheKey = bloodImage.url;
-  if (bloodProfileCache.has(cacheKey)) {
-    return bloodProfileCache.get(cacheKey);
-  }
-
-  const profilePromise = new Promise((resolve) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = image.naturalWidth || bloodImage.width;
-      canvas.height = image.naturalHeight || bloodImage.height;
-      const context = canvas.getContext("2d", { willReadFrequently: true });
-
-      if (!context) {
-        resolve({
-          widthRatio: 1,
-          heightRatio: 1,
-        });
-        return;
-      }
-
-      context.drawImage(image, 0, 0);
-      const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
-      let minX = width;
-      let minY = height;
-      let maxX = -1;
-      let maxY = -1;
-
-      for (let y = 0; y < height; y += 1) {
-        for (let x = 0; x < width; x += 1) {
-          const alpha = data[(y * width + x) * 4 + 3];
-          if (alpha <= 8) continue;
-          if (x < minX) minX = x;
-          if (y < minY) minY = y;
-          if (x > maxX) maxX = x;
-          if (y > maxY) maxY = y;
-        }
-      }
-
-      if (maxX < minX || maxY < minY) {
-        resolve({
-          widthRatio: 1,
-          heightRatio: 1,
-        });
-        return;
-      }
-
-      const visibleWidth = maxX - minX + 1;
-      const visibleHeight = maxY - minY + 1;
-
-      resolve({
-        widthRatio: visibleWidth / width,
-        heightRatio: visibleHeight / height,
-      });
-    };
-    image.onerror = () => {
-      resolve({
-        widthRatio: 1,
-        heightRatio: 1,
-      });
-    };
-    image.src = bloodImage.url;
-  });
-
-  bloodProfileCache.set(cacheKey, profilePromise);
-  return profilePromise;
-}
-
-function getDeadVisualSize(item, bounds, bloodProfile) {
+function getDeadVisualSize(item, bounds) {
   const width = Number(bounds?.width ?? item?.image?.width ?? 100);
   const height = Number(bounds?.height ?? item?.image?.height ?? 100);
   const baseScale = getBaseScale(item);
   const baseWidth = width / Number(baseScale?.x ?? 1);
   const baseHeight = height / Number(baseScale?.y ?? 1);
-  const widthRatio = Math.max(0.01, Number(bloodProfile?.widthRatio ?? 1));
-  const heightRatio = Math.max(0.01, Number(bloodProfile?.heightRatio ?? 1));
 
   return {
-    width: (baseWidth * DEAD_SPLAT_SIZE_MULTIPLIER) / widthRatio,
-    height: (baseHeight * DEAD_SPLAT_SIZE_MULTIPLIER) / heightRatio,
+    width: baseWidth * DEAD_SPLAT_SIZE_MULTIPLIER,
+    height: baseHeight * DEAD_SPLAT_SIZE_MULTIPLIER,
   };
 }
 
@@ -156,8 +83,7 @@ function getManualDeadOffset(item, bounds, existingVisual) {
 
 async function buildDeadVisual(item, bounds, existingVisual) {
   const bloodImage = getBloodImage(item);
-  const bloodProfile = await getBloodProfile(bloodImage);
-  const size = getDeadVisualSize(item, bounds, bloodProfile);
+  const size = getDeadVisualSize(item, bounds);
   const manualOffset = getManualDeadOffset(item, bounds, existingVisual);
 
   const visual = buildImage(bloodImage, BLOOD_GRID)
