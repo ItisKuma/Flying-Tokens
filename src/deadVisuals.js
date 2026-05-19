@@ -187,8 +187,8 @@ function getDeadVisualPosition(item, bounds, size, bloodProfile) {
   const centerYRatio = Number(bloodProfile?.centerYRatio ?? 0.5);
 
   return {
-    x: center.x - size.width * centerXRatio,
-    y: center.y - size.height * centerYRatio,
+    x: center.x - size.width * (centerXRatio - 0.5),
+    y: center.y - size.height * (centerYRatio - 0.5),
   };
 }
 
