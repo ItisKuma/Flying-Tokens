@@ -1,11 +1,11 @@
 import OBR, { buildImage } from "@owlbear-rodeo/sdk";
 import { getDeadData, isDead } from "./dead.js";
 import { BLOOD_SPLAT_IDS, getBloodSplatSpec } from "./deadSplats.js";
+import { getBloodynessFromMetadata, normalizeBloodyness } from "./settings.js";
 import { NS } from "./statusModel.js";
 
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
-const DEAD_SPLAT_SCALE = 1.75;
 const EXTENSION_ORIGIN = globalThis.location?.origin ?? "";
 let cachedRolePromise = null;
 
@@ -50,18 +50,25 @@ function getDeadVisualPosition(item, bounds, gridDpi) {
   };
 }
 
-async function buildDeadVisual(item, bounds, gridDpi) {
+function getDeadVisualScale(bounds, gridDpi, bloodyness) {
+  const squareSize = Number.isFinite(Number(gridDpi)) && Number(gridDpi) > 0 ? Number(gridDpi) : 150;
+  const tokenWidthInSquares = Math.max(0, Number(bounds?.width ?? squareSize) / squareSize);
+  return ((tokenWidthInSquares + 2) / 2) + normalizeBloodyness(bloodyness) * 0.5;
+}
+
+async function buildDeadVisual(item, bounds, gridDpi, bloodyness) {
   const bloodImage = getBloodImage(item);
   const bloodGrid = {
     dpi: 150,
     offset: { x: bloodImage.width / 2, y: bloodImage.height / 2 },
   };
+  const bloodScale = getDeadVisualScale(bounds, gridDpi, bloodyness);
 
   const visual = buildImage(bloodImage, bloodGrid)
     .id(getDeadVisualId(item))
     .name("Dead Status Blood")
     .position(getDeadVisualPosition(item, bounds, gridDpi))
-    .scale({ x: DEAD_SPLAT_SCALE, y: DEAD_SPLAT_SCALE })
+    .scale({ x: bloodScale, y: bloodScale })
     .layer("MAP")
     .locked(true)
     .disableHit(true)
@@ -107,11 +114,19 @@ export async function createDeadVisualsForItems(items) {
   const itemsToAdd = [];
   const boundsById = new Map();
   let gridDpi = 150;
+  let bloodyness = 0;
 
   try {
     gridDpi = await OBR.scene.grid.getDpi();
   } catch {
     gridDpi = 150;
+  }
+
+  try {
+    const metadata = await OBR.scene.getMetadata();
+    bloodyness = getBloodynessFromMetadata(metadata);
+  } catch {
+    bloodyness = 0;
   }
 
   for (const item of deadItems) {
@@ -124,7 +139,7 @@ export async function createDeadVisualsForItems(items) {
   }
 
   for (const item of deadItems) {
-    const visual = await buildDeadVisual(item, boundsById.get(item.id), gridDpi);
+    const visual = await buildDeadVisual(item, boundsById.get(item.id), gridDpi, bloodyness);
     itemsToAdd.push(visual);
   }
 

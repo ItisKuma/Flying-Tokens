@@ -9,15 +9,29 @@ import {
   setFlyingHeight,
   toggleFlyingForItems,
 } from "./flying.js";
+import {
+  DEFAULT_BLOODYNESS,
+  getBloodynessFromMetadata,
+  setSceneBloodyness,
+} from "./settings.js";
 import { getRegisteredStatusDefinitions } from "./statusRegistry.js";
 
 const state = {
+  activeTab: "tokens",
+  bloodyness: DEFAULT_BLOODYNESS,
   items: [],
   sceneReady: false,
   selectedIds: [],
   lastSelectedCharacterId: null,
   busyItemIds: new Set(),
 };
+
+function getBloodynessLabel(value) {
+  const bloodyness = Math.max(0, Math.min(1, Number(value) || 0));
+  if (bloodyness <= 0) return "None";
+  if (bloodyness >= 1) return "Bloody Mess";
+  return bloodyness.toFixed(2);
+}
 
 function isSceneCharacterToken(item) {
   if (!item || item.layer !== "CHARACTER" || item.type !== "IMAGE") {
@@ -234,6 +248,31 @@ function renderSceneTab() {
 }
 
 function render() {
+  const tokensTabButton = document.getElementById("tab-tokens");
+  const settingsTabButton = document.getElementById("tab-settings");
+  const tokensPanel = document.getElementById("panel-tokens");
+  const settingsPanel = document.getElementById("panel-settings");
+  const bloodynessSlider = document.getElementById("bloodyness-slider");
+  const bloodynessValue = document.getElementById("bloodyness-value");
+
+  if (tokensTabButton && settingsTabButton && tokensPanel && settingsPanel) {
+    const tokensActive = state.activeTab === "tokens";
+    tokensTabButton.classList.toggle("is-active", tokensActive);
+    tokensTabButton.setAttribute("aria-selected", String(tokensActive));
+    settingsTabButton.classList.toggle("is-active", !tokensActive);
+    settingsTabButton.setAttribute("aria-selected", String(!tokensActive));
+    tokensPanel.hidden = !tokensActive;
+    settingsPanel.hidden = tokensActive;
+  }
+
+  if (bloodynessSlider) {
+    bloodynessSlider.value = String(state.bloodyness);
+  }
+
+  if (bloodynessValue) {
+    bloodynessValue.textContent = getBloodynessLabel(state.bloodyness);
+  }
+
   renderSelectedTab();
   renderSceneTab();
 }
@@ -381,6 +420,13 @@ async function toggleStatus(item, statusId) {
 
 OBR.onReady(() => {
   document.addEventListener("click", async (event) => {
+    const tabButton = event.target.closest("button[data-tab]");
+    if (tabButton) {
+      state.activeTab = tabButton.dataset.tab === "settings" ? "settings" : "tokens";
+      render();
+      return;
+    }
+
     const cleanBloodButton = event.target.closest("#clean-blood-button");
     if (cleanBloodButton) {
       cleanBloodButton.disabled = true;
@@ -417,6 +463,13 @@ OBR.onReady(() => {
   });
 
   document.addEventListener("input", (event) => {
+    const bloodynessSlider = event.target.closest("#bloodyness-slider");
+    if (bloodynessSlider) {
+      state.bloodyness = Number(bloodynessSlider.value);
+      render();
+      return;
+    }
+
     const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
     if (!slider) return;
 
@@ -428,6 +481,15 @@ OBR.onReady(() => {
   });
 
   document.addEventListener("change", async (event) => {
+    const bloodynessSlider = event.target.closest("#bloodyness-slider");
+    if (bloodynessSlider) {
+      const nextValue = Number(bloodynessSlider.value);
+      state.bloodyness = nextValue;
+      render();
+      await setSceneBloodyness(nextValue);
+      return;
+    }
+
     const slider = event.target.closest("input[data-action='set-z'][data-item-id]");
     if (!slider) return;
 
@@ -458,6 +520,11 @@ OBR.onReady(() => {
     Promise.resolve().then(refreshSelection);
   });
 
+  OBR.scene.onMetadataChange((metadata) => {
+    state.bloodyness = getBloodynessFromMetadata(metadata);
+    render();
+  });
+
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
     state.items = items;
@@ -474,12 +541,14 @@ OBR.onReady(() => {
     state.sceneReady = ready;
 
     if (!ready) {
+      state.bloodyness = DEFAULT_BLOODYNESS;
       state.items = [];
       state.selectedIds = [];
       render();
       return;
     }
 
+    state.bloodyness = await OBR.scene.getMetadata().then(getBloodynessFromMetadata).catch(() => DEFAULT_BLOODYNESS);
     await refreshSelection();
     await refreshItems();
   });
@@ -490,6 +559,7 @@ OBR.onReady(() => {
     render();
 
     if (!ready) return;
+    state.bloodyness = await OBR.scene.getMetadata().then(getBloodynessFromMetadata).catch(() => DEFAULT_BLOODYNESS);
     await refreshItems();
   });
 });

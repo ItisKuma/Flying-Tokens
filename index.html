@@ -39,6 +39,34 @@
         gap: 12px;
       }
 
+      .tab-strip {
+        display: flex;
+        gap: 8px;
+        align-items: end;
+      }
+
+      .tab-button {
+        width: auto;
+        padding: 8px 14px;
+        border-radius: 12px 12px 0 0;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-bottom-color: rgba(255, 255, 255, 0.06);
+      }
+
+      .tab-button:hover {
+        background: rgba(255, 255, 255, 0.14);
+      }
+
+      .tab-button.is-active {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.08));
+        border-bottom-color: transparent;
+      }
+
+      .tab-panel[hidden] {
+        display: none;
+      }
+
       section {
         padding: 12px;
         border: 1px solid rgba(255, 255, 255, 0.14);
@@ -105,6 +133,32 @@
 
       .section-actions > button {
         width: auto;
+      }
+
+      .setting-row {
+        display: grid;
+        gap: 8px;
+      }
+
+      .setting-row__header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: baseline;
+      }
+
+      .setting-row__value {
+        color: #ffd978;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .setting-row__range {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: #b5b9ca;
+        font-size: 12px;
       }
 
       .token-list {
@@ -231,20 +285,44 @@
   </head>
   <body>
     <main>
-      <section class="stack">
-        <h2>Selected</h2>
-        <p id="selected-token-empty">Select a character token in the scene.</p>
-        <ul id="selected-token-list" class="token-list"></ul>
-      </section>
+      <div class="tab-strip" role="tablist" aria-label="Token Status Tabs">
+        <button id="tab-tokens" class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab="tokens">Tokens</button>
+        <button id="tab-settings" class="tab-button" type="button" role="tab" aria-selected="false" data-tab="settings">Settings</button>
+      </div>
 
-      <section class="stack">
-        <h2>Tokens in Scene</h2>
-        <div class="section-actions">
-          <button id="clean-blood-button" type="button">Clean Blood</button>
-        </div>
-        <p id="scene-token-empty">No character tokens in this scene.</p>
-        <ul id="scene-token-list" class="token-list"></ul>
-      </section>
+      <div id="panel-tokens" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-tokens">
+        <section class="stack">
+          <h2>Selected</h2>
+          <p id="selected-token-empty">Select a character token in the scene.</p>
+          <ul id="selected-token-list" class="token-list"></ul>
+        </section>
+
+        <section class="stack">
+          <h2>Tokens in Scene</h2>
+          <div class="section-actions">
+            <button id="clean-blood-button" type="button">Clean Blood</button>
+          </div>
+          <p id="scene-token-empty">No character tokens in this scene.</p>
+          <ul id="scene-token-list" class="token-list"></ul>
+        </section>
+      </div>
+
+      <div id="panel-settings" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-settings" hidden>
+        <section class="stack">
+          <h2>Settings</h2>
+          <div class="setting-row">
+            <div class="setting-row__header">
+              <span>Bloodyness</span>
+              <span id="bloodyness-value" class="setting-row__value">None</span>
+            </div>
+            <input id="bloodyness-slider" class="ui-slider" type="range" min="0" max="1" step="0.05" value="0" />
+            <div class="setting-row__range">
+              <span>None</span>
+              <span>Bloody Mess</span>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
     <script type="module" src="/src/main.js"></script>
   </body>
