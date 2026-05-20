@@ -6,6 +6,7 @@ import { NS } from "./statusModel.js";
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
 const DEAD_SPLAT_SCALE = 1.75;
+const DEAD_VISUAL_MAP_Z_INDEX = 1000000;
 const EXTENSION_ORIGIN = globalThis.location?.origin ?? "";
 let cachedRolePromise = null;
 
@@ -51,7 +52,7 @@ function getDeadVisualPosition(item, bounds, gridDpi) {
 }
 
 function getDeadVisualZIndex(item) {
-  return Number(item?.zIndex ?? 0) - 0.2;
+  return DEAD_VISUAL_MAP_Z_INDEX;
 }
 
 async function buildDeadVisual(item, bounds, gridDpi) {
@@ -66,7 +67,7 @@ async function buildDeadVisual(item, bounds, gridDpi) {
     .name("Dead Status Blood")
     .position(getDeadVisualPosition(item, bounds, gridDpi))
     .scale({ x: DEAD_SPLAT_SCALE, y: DEAD_SPLAT_SCALE })
-    .layer("DRAWING")
+    .layer("MAP")
     .locked(true)
     .disableHit(true)
     .disableAutoZIndex(true)
