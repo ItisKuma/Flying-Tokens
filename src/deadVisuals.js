@@ -53,7 +53,8 @@ function getDeadVisualPosition(item, bounds, gridDpi) {
 function getDeadVisualScale(bounds, gridDpi, bloodyness) {
   const squareSize = Number.isFinite(Number(gridDpi)) && Number(gridDpi) > 0 ? Number(gridDpi) : 150;
   const tokenWidthInSquares = Math.max(0, Number(bounds?.width ?? squareSize) / squareSize);
-  return ((tokenWidthInSquares + 2) / 2) + normalizeBloodyness(bloodyness) * 0.5;
+  const tokenHeightInSquares = Math.max(0, Number(bounds?.height ?? squareSize) / squareSize);
+  return ((tokenWidthInSquares + tokenHeightInSquares) / 2) * normalizeBloodyness(bloodyness);
 }
 
 async function buildDeadVisual(item, bounds, gridDpi, bloodyness) {
