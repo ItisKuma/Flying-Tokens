@@ -7,7 +7,7 @@ export const BLOOD_SPLATS = [
   { file: "blood_splat_06.png", width: 198, height: 211, offsetSquaresX: 0, offsetSquaresY: 0 },
   { file: "blood_splat_07.png", width: 188, height: 171, offsetSquaresX: 0, offsetSquaresY: 0 },
   { file: "blood_splat_08.png", width: 206, height: 168, offsetSquaresX: 0, offsetSquaresY: -0.5 },
-  { file: "blood_splat_09.png", width: 112, height: 138, offsetSquaresX: 0.75, offsetSquaresY: -0.3 },
+  { file: "blood_splat_09.png", width: 112, height: 138, offsetSquaresX: 0.6, offsetSquaresY: -0.3 },
   { file: "blood_splat_10.png", width: 148, height: 165, offsetSquaresX: 0, offsetSquaresY: 0 },
   { file: "blood_splat_11.png", width: 177, height: 184, offsetSquaresX: 1, offsetSquaresY: 0 },
   { file: "blood_splat_12.png", width: 211, height: 144, offsetSquaresX: 0, offsetSquaresY: 0 },
