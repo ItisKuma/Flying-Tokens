@@ -1,24 +1,16 @@
 import OBR from "@owlbear-rodeo/sdk";
-import {
-  hasAnimatingDeadVisuals,
-  syncLocalDeadVisuals,
-} from "./deadVisuals.js";
 import { clearLocalFlyingLabels, syncLocalFlyingLabels } from "./flyingLabel.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
-
-const DEAD_ANIMATION_TICK_MS = 120;
 
 const state = {
   items: [],
   sceneReady: false,
 };
 
-let animationIntervalId = 0;
 let syncInFlight = false;
 let syncQueued = false;
 
 async function syncRuntimeVisuals(items = state.items) {
-  await syncLocalDeadVisuals(items);
   await syncLocalFlyingLabels(items);
   await syncLocalShadows(items);
 }
@@ -72,34 +64,6 @@ async function refreshItems() {
   await syncRuntimeVisuals(state.items);
 }
 
-async function runDeadAnimationTick() {
-  if (!state.sceneReady) {
-    return;
-  }
-
-  if (!hasAnimatingDeadVisuals(state.items)) {
-    return;
-  }
-
-  await syncLocalDeadVisuals(state.items);
-}
-
-function stopAnimationLoop() {
-  if (!animationIntervalId) {
-    return;
-  }
-
-  window.clearInterval(animationIntervalId);
-  animationIntervalId = 0;
-}
-
-function startAnimationLoop() {
-  stopAnimationLoop();
-  animationIntervalId = window.setInterval(() => {
-    runDeadAnimationTick();
-  }, DEAD_ANIMATION_TICK_MS);
-}
-
 OBR.onReady(() => {
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
@@ -111,14 +75,12 @@ OBR.onReady(() => {
 
     if (!ready) {
       state.items = [];
-      stopAnimationLoop();
       await clearLocalFlyingLabels();
       await clearLocalShadows();
       return;
     }
 
     await refreshItems();
-    startAnimationLoop();
   });
 
   OBR.scene.isReady().then(async (ready) => {
@@ -131,6 +93,5 @@ OBR.onReady(() => {
     }
 
     await refreshItems();
-    startAnimationLoop();
   });
 });

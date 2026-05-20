@@ -98,6 +98,15 @@
         gap: 10px;
       }
 
+      .section-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .section-actions > button {
+        width: auto;
+      }
+
       .token-list {
         list-style: none;
         padding: 0;
@@ -230,6 +239,9 @@
 
       <section class="stack">
         <h2>Tokens in Scene</h2>
+        <div class="section-actions">
+          <button id="clean-blood-button" type="button">Clean Blood</button>
+        </div>
         <p id="scene-token-empty">No character tokens in this scene.</p>
         <ul id="scene-token-list" class="token-list"></ul>
       </section>

@@ -9,8 +9,9 @@ const DEAD_SPLAT_SCALE = 1.75;
 const EXTENSION_ORIGIN = globalThis.location?.origin ?? "";
 let cachedRolePromise = null;
 
-function getDeadVisualId(itemId) {
-  return `${DEAD_VISUAL_ID_PREFIX}${itemId}`;
+function getDeadVisualId(item) {
+  const appliedAt = Number(getDeadData(item)?.appliedAt ?? Date.now());
+  return `${DEAD_VISUAL_ID_PREFIX}${item.id}/${appliedAt}`;
 }
 
 async function canManageDeadVisuals() {
@@ -61,13 +62,13 @@ async function buildDeadVisual(item, bounds, gridDpi) {
   };
 
   const visual = buildImage(bloodImage, bloodGrid)
-    .id(getDeadVisualId(item.id))
+    .id(getDeadVisualId(item))
     .name("Dead Status Blood")
     .position(getDeadVisualPosition(item, bounds, gridDpi))
     .scale({ x: DEAD_SPLAT_SCALE, y: DEAD_SPLAT_SCALE })
-    .layer("CHARACTER")
-    .locked(false)
-    .disableHit(false)
+    .layer("DRAWING")
+    .locked(true)
+    .disableHit(true)
     .disableAutoZIndex(true)
     .metadata({
       [DEAD_VISUAL_NS]: {
@@ -80,47 +81,22 @@ async function buildDeadVisual(item, bounds, gridDpi) {
   return visual;
 }
 
-export async function clearLocalDeadVisuals() {
+export async function clearSceneDeadVisuals() {
   if (!(await canManageDeadVisuals())) return;
 
-  const localItems = await OBR.scene.items.getItems(
+  const deadVisualItems = await OBR.scene.items.getItems(
     (item) => item?.metadata?.[DEAD_VISUAL_NS]?.deadFor,
   );
 
-  if (localItems.length === 0) return;
-  await OBR.scene.items.deleteItems(localItems.map((item) => item.id));
+  if (deadVisualItems.length === 0) return;
+  await OBR.scene.items.deleteItems(deadVisualItems.map((item) => item.id));
 }
 
-export function hasAnimatingDeadVisuals() {
-  return false;
-}
-
-export async function syncLocalDeadVisuals(items) {
+export async function createDeadVisualsForItems(items) {
   if (!(await canManageDeadVisuals())) return;
+  if (!items || items.length === 0) return;
 
-  const sourceItems = items.filter((item) => !isManagedDeadVisual(item));
-  const deadItems = sourceItems.filter((item) => isDead(item));
-  const localItems = await OBR.scene.items.getItems(
-    (item) => item?.metadata?.[DEAD_VISUAL_NS]?.deadFor,
-  );
-
-  const deadById = new Map(deadItems.map((item) => [item.id, item]));
-  const desiredIds = new Set(deadItems.map((item) => getDeadVisualId(item.id)));
-
-  const idsToDelete = localItems
-    .filter((localItem) => {
-      const ownerId = localItem.metadata?.[DEAD_VISUAL_NS]?.deadFor;
-      if (!ownerId) return false;
-      if (!deadById.has(ownerId)) return true;
-      return !desiredIds.has(localItem.id);
-    })
-    .map((localItem) => localItem.id);
-
-  if (idsToDelete.length > 0) {
-    await OBR.scene.items.deleteItems(idsToDelete);
-  }
-
-  const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
+  const deadItems = items.filter((item) => isDead(item) && !isManagedDeadVisual(item));
   const itemsToAdd = [];
   const boundsById = new Map();
   let gridDpi = 150;
@@ -141,33 +117,21 @@ export async function syncLocalDeadVisuals(items) {
   }
 
   for (const item of deadItems) {
-    const existingVisual = localItemsById.get(getDeadVisualId(item.id));
     const visual = await buildDeadVisual(item, boundsById.get(item.id), gridDpi);
-
-    if (!existingVisual || existingVisual.type !== visual.type) {
-      if (existingVisual?.id) {
-        await OBR.scene.items.deleteItems([existingVisual.id]);
-      }
-      itemsToAdd.push(visual);
-      continue;
-    }
-
-    await OBR.scene.items.updateItems([visual.id], (draftItems) => {
-      for (const draftItem of draftItems) {
-        draftItem.position = visual.position;
-        draftItem.scale = visual.scale;
-        draftItem.layer = visual.layer;
-        draftItem.locked = visual.locked;
-        draftItem.visible = visual.visible;
-        draftItem.disableHit = visual.disableHit;
-        draftItem.disableAutoZIndex = visual.disableAutoZIndex;
-        draftItem.zIndex = visual.zIndex;
-        draftItem.metadata = visual.metadata;
-      }
-    });
+    itemsToAdd.push(visual);
   }
 
   if (itemsToAdd.length > 0) {
     await OBR.scene.items.addItems(itemsToAdd);
   }
 }
+
+export async function clearLocalDeadVisuals() {
+  await clearSceneDeadVisuals();
+}
+
+export function hasAnimatingDeadVisuals() {
+  return false;
+}
+
+export async function syncLocalDeadVisuals() {}

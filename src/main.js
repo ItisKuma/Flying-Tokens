@@ -1,6 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { isDead, toggleDeadForItems } from "./dead.js";
-import { DEAD_VISUAL_NS } from "./deadVisuals.js";
+import { clearSceneDeadVisuals, DEAD_VISUAL_NS } from "./deadVisuals.js";
 import {
   DEFAULT_Z_FEET,
   getItemLabel,
@@ -381,6 +381,17 @@ async function toggleStatus(item, statusId) {
 
 OBR.onReady(() => {
   document.addEventListener("click", async (event) => {
+    const cleanBloodButton = event.target.closest("#clean-blood-button");
+    if (cleanBloodButton) {
+      cleanBloodButton.disabled = true;
+      try {
+        await clearSceneDeadVisuals();
+      } finally {
+        cleanBloodButton.disabled = false;
+      }
+      return;
+    }
+
     const statusButton = event.target.closest("button[data-action='toggle-status'][data-item-id][data-status-id]");
     if (!statusButton) return;
 

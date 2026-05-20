@@ -1,5 +1,6 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { pickRandomBloodSplat } from "./deadSplats.js";
+import { createDeadVisualsForItems } from "./deadVisuals.js";
 import { DEAD_STATUS_ID, getStatusData, removeItemStatusData, setItemStatusData } from "./statusModel.js";
 
 export function getDeadData(item) {
@@ -19,6 +20,8 @@ export async function toggleDeadForItems(items) {
     const data = getDeadData(item);
 
     if (!data?.active) {
+      const splatFile = pickRandomBloodSplat();
+
       await OBR.scene.items.updateItems([item.id], (draftItems) => {
         for (const draftItem of draftItems) {
           if (!draftItem) continue;
@@ -26,10 +29,15 @@ export async function toggleDeadForItems(items) {
           setItemStatusData(draftItem, DEAD_STATUS_ID, {
             active: true,
             appliedAt: Date.now(),
-            splatFile: pickRandomBloodSplat(),
+            splatFile,
           });
         }
       });
+
+      const [updatedItem] = await OBR.scene.items.getItems([item.id]);
+      if (updatedItem) {
+        await createDeadVisualsForItems([updatedItem]);
+      }
       continue;
     }
 
