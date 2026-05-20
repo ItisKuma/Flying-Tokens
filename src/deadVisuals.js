@@ -86,6 +86,19 @@ export async function clearSceneDeadVisuals() {
   await OBR.scene.items.deleteItems(deadVisualItems.map((item) => item.id));
 }
 
+export async function deleteDeadVisualsForSourceIds(sourceIds) {
+  if (!(await canManageDeadVisuals())) return;
+  if (!sourceIds || sourceIds.length === 0) return;
+
+  const sourceIdSet = new Set(sourceIds);
+  const deadVisualItems = await OBR.scene.items.getItems(
+    (item) => sourceIdSet.has(item?.metadata?.[DEAD_VISUAL_NS]?.deadFor),
+  );
+
+  if (deadVisualItems.length === 0) return;
+  await OBR.scene.items.deleteItems(deadVisualItems.map((item) => item.id));
+}
+
 export async function createDeadVisualsForItems(items) {
   if (!(await canManageDeadVisuals())) return;
   if (!items || items.length === 0) return;
