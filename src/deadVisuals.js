@@ -5,7 +5,7 @@ import { NS } from "./statusModel.js";
 
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
-const DEAD_SPLAT_SCALE = 0.25;
+const DEAD_SPLAT_SCALE = 0.75;
 const EXTENSION_ORIGIN = globalThis.location?.origin ?? "";
 let cachedRolePromise = null;
 
