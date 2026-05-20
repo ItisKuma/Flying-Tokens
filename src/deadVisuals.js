@@ -37,12 +37,15 @@ function getBloodImage(item) {
   };
 }
 
-function getDeadVisualPosition(item, bounds) {
+function getDeadVisualPosition(item, bounds, gridDpi) {
   const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
+  const file = getDeadData(item)?.splatFile ?? BLOOD_SPLAT_IDS[0];
+  const spec = getBloodSplatSpec(file);
+  const squareSize = Number.isFinite(Number(gridDpi)) && Number(gridDpi) > 0 ? Number(gridDpi) : 150;
 
   return {
-    x: center.x,
-    y: center.y,
+    x: center.x + squareSize * Number(spec.offsetSquaresX ?? 0),
+    y: center.y + squareSize * Number(spec.offsetSquaresY ?? 0),
   };
 }
 
@@ -50,7 +53,7 @@ function getDeadVisualZIndex(item) {
   return Number(item?.zIndex ?? 0) - 0.2;
 }
 
-async function buildDeadVisual(item, bounds) {
+async function buildDeadVisual(item, bounds, gridDpi) {
   const bloodImage = getBloodImage(item);
   const bloodGrid = {
     dpi: 150,
@@ -60,7 +63,7 @@ async function buildDeadVisual(item, bounds) {
   const visual = buildImage(bloodImage, bloodGrid)
     .id(getDeadVisualId(item.id))
     .name("Dead Status Blood")
-    .position(getDeadVisualPosition(item, bounds))
+    .position(getDeadVisualPosition(item, bounds, gridDpi))
     .scale({ x: DEAD_SPLAT_SCALE, y: DEAD_SPLAT_SCALE })
     .layer("CHARACTER")
     .locked(false)
@@ -120,6 +123,14 @@ export async function syncLocalDeadVisuals(items) {
   const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
   const itemsToAdd = [];
   const boundsById = new Map();
+  let gridDpi = 150;
+
+  try {
+    gridDpi = await OBR.scene.grid.getDpi();
+  } catch {
+    gridDpi = 150;
+  }
+
   for (const item of deadItems) {
     try {
       const bounds = await OBR.scene.items.getItemBounds([item.id]);
@@ -131,7 +142,7 @@ export async function syncLocalDeadVisuals(items) {
 
   for (const item of deadItems) {
     const existingVisual = localItemsById.get(getDeadVisualId(item.id));
-    const visual = await buildDeadVisual(item, boundsById.get(item.id));
+    const visual = await buildDeadVisual(item, boundsById.get(item.id), gridDpi);
 
     if (!existingVisual || existingVisual.type !== visual.type) {
       if (existingVisual?.id) {
