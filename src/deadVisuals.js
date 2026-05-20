@@ -1,17 +1,11 @@
 import OBR, { buildImage } from "@owlbear-rodeo/sdk";
 import { getDeadData, isDead } from "./dead.js";
-import { BLOOD_SPLAT_IDS } from "./deadSplats.js";
+import { BLOOD_SPLAT_IDS, getBloodSplatSpec } from "./deadSplats.js";
 import { NS } from "./statusModel.js";
 
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
 const DEAD_VISUAL_ID_PREFIX = `${NS}/dead-visual/`;
 const DEAD_SPLAT_SCALE = 0.25;
-const BLOOD_IMAGE_WIDTH = 512;
-const BLOOD_IMAGE_HEIGHT = 512;
-const BLOOD_GRID = {
-  dpi: 150,
-  offset: { x: BLOOD_IMAGE_WIDTH / 2, y: BLOOD_IMAGE_HEIGHT / 2 },
-};
 const EXTENSION_ORIGIN = globalThis.location?.origin ?? "";
 let cachedRolePromise = null;
 
@@ -30,14 +24,15 @@ function isManagedDeadVisual(item) {
 
 function getBloodImage(item) {
   const file = getDeadData(item)?.splatFile ?? BLOOD_SPLAT_IDS[0];
+  const spec = getBloodSplatSpec(file);
   const url = EXTENSION_ORIGIN
     ? new URL(`/blood-splats/${file}`, EXTENSION_ORIGIN).toString()
     : `/blood-splats/${file}`;
 
   return {
     url,
-    width: BLOOD_IMAGE_WIDTH,
-    height: BLOOD_IMAGE_HEIGHT,
+    width: spec.width,
+    height: spec.height,
     mime: "image/png",
   };
 }
@@ -57,8 +52,12 @@ function getDeadVisualZIndex(item) {
 
 async function buildDeadVisual(item, bounds) {
   const bloodImage = getBloodImage(item);
+  const bloodGrid = {
+    dpi: 150,
+    offset: { x: bloodImage.width / 2, y: bloodImage.height / 2 },
+  };
 
-  const visual = buildImage(bloodImage, BLOOD_GRID)
+  const visual = buildImage(bloodImage, bloodGrid)
     .id(getDeadVisualId(item.id))
     .name("Dead Status Blood")
     .position(getDeadVisualPosition(item, bounds))
