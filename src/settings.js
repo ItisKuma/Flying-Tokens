@@ -10,7 +10,11 @@ export function normalizeBloodyness(value) {
     return DEFAULT_BLOODYNESS;
   }
 
-  return Math.max(0, Math.min(1, numericValue));
+  if (numericValue <= 0) {
+    return 0;
+  }
+
+  return Math.max(1, Math.min(2, numericValue));
 }
 
 export function getSettingsFromMetadata(metadata) {

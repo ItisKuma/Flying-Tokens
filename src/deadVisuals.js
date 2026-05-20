@@ -130,6 +130,10 @@ export async function createDeadVisualsForItems(items) {
     bloodyness = 0;
   }
 
+  if (bloodyness <= 0) {
+    return;
+  }
+
   for (const item of deadItems) {
     try {
       const bounds = await OBR.scene.items.getItemBounds([item.id]);

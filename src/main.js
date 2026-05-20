@@ -12,6 +12,7 @@ import {
 import {
   DEFAULT_BLOODYNESS,
   getBloodynessFromMetadata,
+  normalizeBloodyness,
   setSceneBloodyness,
 } from "./settings.js";
 import { getRegisteredStatusDefinitions } from "./statusRegistry.js";
@@ -27,9 +28,9 @@ const state = {
 };
 
 function getBloodynessLabel(value) {
-  const bloodyness = Math.max(0, Math.min(1, Number(value) || 0));
+  const bloodyness = normalizeBloodyness(value);
   if (bloodyness <= 0) return "None";
-  if (bloodyness >= 1) return "Bloody Mess";
+  if (bloodyness >= 2) return "Bloody Mess";
   return bloodyness.toFixed(2);
 }
 
@@ -465,7 +466,7 @@ OBR.onReady(() => {
   document.addEventListener("input", (event) => {
     const bloodynessSlider = event.target.closest("#bloodyness-slider");
     if (bloodynessSlider) {
-      state.bloodyness = Number(bloodynessSlider.value);
+      state.bloodyness = normalizeBloodyness(bloodynessSlider.value);
       render();
       return;
     }
@@ -483,7 +484,7 @@ OBR.onReady(() => {
   document.addEventListener("change", async (event) => {
     const bloodynessSlider = event.target.closest("#bloodyness-slider");
     if (bloodynessSlider) {
-      const nextValue = Number(bloodynessSlider.value);
+      const nextValue = normalizeBloodyness(bloodynessSlider.value);
       state.bloodyness = nextValue;
       render();
       await setSceneBloodyness(nextValue);
