@@ -101,8 +101,23 @@ export async function clearLocalDeadLabels() {
   await OBR.scene.local.deleteItems(localItems.map((item) => item.id));
 }
 
-export async function syncLocalDeadLabels(items) {
-  const deadItems = items.filter((item) => isDead(item));
+export async function deleteLocalDeadLabelsForSourceIds(sourceIds) {
+  const ids = Array.from(new Set((sourceIds ?? []).filter(Boolean)));
+  if (ids.length === 0) return;
+
+  const sourceIdSet = new Set(ids);
+  const localItems = await OBR.scene.local.getItems(
+    (item) => sourceIdSet.has(item?.metadata?.[LOCAL_DEAD_LABEL_NS]?.labelFor),
+  );
+
+  if (localItems.length === 0) return;
+  await OBR.scene.local.deleteItems(localItems.map((item) => item.id));
+}
+
+export async function createLocalDeadLabelsForItems(items) {
+  const deadItems = (items ?? []).filter((item) => isDead(item));
+  if (deadItems.length === 0) return;
+
   const localItems = await OBR.scene.local.getItems(
     (item) => item?.metadata?.[LOCAL_DEAD_LABEL_NS]?.labelFor,
   );
@@ -114,22 +129,7 @@ export async function syncLocalDeadLabels(items) {
     gridDpi = 150;
   }
 
-  const deadById = new Map(deadItems.map((item) => [item.id, item]));
-  const desiredIds = new Set(deadItems.map((item) => getDeadLabelId(item.id)));
   const localItemsById = new Map(localItems.map((item) => [item.id, item]));
-
-  const itemIdsToDelete = localItems
-    .filter((localItem) => {
-      const ownerId = localItem.metadata?.[LOCAL_DEAD_LABEL_NS]?.labelFor;
-      if (!ownerId) return false;
-      if (!deadById.has(ownerId)) return true;
-      return !desiredIds.has(localItem.id);
-    })
-    .map((localItem) => localItem.id);
-
-  if (itemIdsToDelete.length > 0) {
-    await OBR.scene.local.deleteItems(itemIdsToDelete);
-  }
 
   const boundsById = new Map();
   for (const item of deadItems) {
@@ -147,30 +147,15 @@ export async function syncLocalDeadLabels(items) {
     label.zIndex = Number(item.zIndex ?? 0) + 0.3;
 
     const existingLabel = localItemsById.get(label.id);
-    if (!existingLabel || existingLabel.type !== label.type) {
-      if (existingLabel?.id) {
-        await OBR.scene.local.deleteItems([existingLabel.id]);
-      }
-      itemsToAdd.push(label);
+    if (existingLabel?.type === label.type) {
       continue;
     }
 
-    await OBR.scene.local.updateItems([label.id], (draftItems) => {
-      for (const draftItem of draftItems) {
-        draftItem.position = label.position;
-        draftItem.layer = label.layer;
-        draftItem.locked = label.locked;
-        draftItem.visible = label.visible;
-        draftItem.disableHit = label.disableHit;
-        draftItem.disableAutoZIndex = label.disableAutoZIndex;
-        draftItem.zIndex = label.zIndex;
-        draftItem.metadata = label.metadata;
-        draftItem.rotation = label.rotation;
-        draftItem.attachedTo = label.attachedTo;
-        draftItem.disableAttachmentBehavior = label.disableAttachmentBehavior;
-        draftItem.text = label.text;
-      }
-    });
+    if (existingLabel?.id) {
+      await OBR.scene.local.deleteItems([existingLabel.id]);
+    }
+
+    itemsToAdd.push(label);
   }
 
   if (itemsToAdd.length > 0) {
