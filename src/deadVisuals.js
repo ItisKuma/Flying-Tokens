@@ -127,10 +127,10 @@ export async function createDeadVisualsForItems(items) {
     const metadata = await OBR.scene.getMetadata();
     bloodyness = getBloodynessFromMetadata(metadata);
   } catch {
-    bloodyness = 0;
+    bloodyness = 0.95;
   }
 
-  if (bloodyness <= 0) {
+  if (bloodyness <= 0.95) {
     return;
   }
 

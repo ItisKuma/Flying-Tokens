@@ -29,7 +29,7 @@ const state = {
 
 function getBloodynessLabel(value) {
   const bloodyness = normalizeBloodyness(value);
-  if (bloodyness <= 0) return "None";
+  if (bloodyness <= 0.95) return "None";
   if (bloodyness >= 2) return "Bloody Mess";
   return bloodyness.toFixed(2);
 }
