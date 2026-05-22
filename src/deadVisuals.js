@@ -1,7 +1,12 @@
 import OBR, { buildImage } from "@owlbear-rodeo/sdk";
 import { getDeadData, isDead } from "./dead.js";
 import { BLOOD_SPLAT_IDS, getBloodSplatSpec, resolveBloodSplatFile } from "./deadSplats.js";
-import { getBloodynessFromMetadata, normalizeBloodyness } from "./settings.js";
+import {
+  DEFAULT_BLOODYNESS,
+  MIN_BLOODYNESS,
+  getBloodynessFromMetadata,
+  normalizeBloodyness,
+} from "./settings.js";
 import { NS } from "./statusModel.js";
 
 export const DEAD_VISUAL_NS = `${NS}/dead-visual`;
@@ -127,10 +132,10 @@ export async function createDeadVisualsForItems(items) {
     const metadata = await OBR.scene.getMetadata();
     bloodyness = getBloodynessFromMetadata(metadata);
   } catch {
-    bloodyness = 0.95;
+    bloodyness = DEFAULT_BLOODYNESS;
   }
 
-  if (bloodyness <= 0.95) {
+  if (bloodyness <= MIN_BLOODYNESS) {
     return;
   }
 

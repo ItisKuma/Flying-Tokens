@@ -4,7 +4,7 @@ import { NS } from "./statusModel.js";
 export const SETTINGS_NS = `${NS}/settings`;
 export const MIN_BLOODYNESS = 0.5;
 export const MAX_BLOODYNESS = 1.25;
-export const DEFAULT_BLOODYNESS = 0.95;
+export const DEFAULT_BLOODYNESS = 0.5;
 
 export function normalizeBloodyness(value) {
   const numericValue = Number(value);
