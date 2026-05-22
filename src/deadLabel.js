@@ -92,12 +92,6 @@ function buildDeadTextLabel(item, bounds, gridDpi) {
     .build();
 }
 
-async function createDeadTextLabel(item, bounds, gridDpi) {
-  const label = buildDeadTextLabel(item, bounds, gridDpi);
-  label.zIndex = Number(item.zIndex ?? 0) + 0.3;
-  await OBR.scene.local.addItems([label]);
-}
-
 export async function clearLocalDeadLabels() {
   const localItems = await OBR.scene.local.getItems(
     (item) => item?.metadata?.[LOCAL_DEAD_LABEL_NS]?.labelFor,
@@ -147,15 +141,39 @@ export async function syncLocalDeadLabels(items) {
     }
   }
 
+  const itemsToAdd = [];
   for (const item of deadItems) {
-    const labelId = getDeadLabelId(item.id);
-    const existingLabel = localItemsById.get(labelId);
-    if (existingLabel?.type === "TEXT") {
+    const label = buildDeadTextLabel(item, boundsById.get(item.id), gridDpi);
+    label.zIndex = Number(item.zIndex ?? 0) + 0.3;
+
+    const existingLabel = localItemsById.get(label.id);
+    if (!existingLabel || existingLabel.type !== label.type) {
+      if (existingLabel?.id) {
+        await OBR.scene.local.deleteItems([existingLabel.id]);
+      }
+      itemsToAdd.push(label);
       continue;
     }
-    if (existingLabel?.id) {
-      await OBR.scene.local.deleteItems([existingLabel.id]);
-    }
-    await createDeadTextLabel(item, boundsById.get(item.id), gridDpi);
+
+    await OBR.scene.local.updateItems([label.id], (draftItems) => {
+      for (const draftItem of draftItems) {
+        draftItem.position = label.position;
+        draftItem.layer = label.layer;
+        draftItem.locked = label.locked;
+        draftItem.visible = label.visible;
+        draftItem.disableHit = label.disableHit;
+        draftItem.disableAutoZIndex = label.disableAutoZIndex;
+        draftItem.zIndex = label.zIndex;
+        draftItem.metadata = label.metadata;
+        draftItem.rotation = label.rotation;
+        draftItem.attachedTo = label.attachedTo;
+        draftItem.disableAttachmentBehavior = label.disableAttachmentBehavior;
+        draftItem.text = label.text;
+      }
+    });
+  }
+
+  if (itemsToAdd.length > 0) {
+    await OBR.scene.local.addItems(itemsToAdd);
   }
 }
