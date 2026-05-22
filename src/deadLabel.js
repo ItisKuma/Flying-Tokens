@@ -1,5 +1,5 @@
 import OBR, { buildText } from "@owlbear-rodeo/sdk";
-import { getDeadData, isDead } from "./dead.js";
+import { isDead } from "./dead.js";
 import { NS } from "./statusModel.js";
 
 export const LOCAL_DEAD_LABEL_NS = `${NS}-local-dead-label`;
@@ -18,20 +18,8 @@ function getDeadLabelId(itemId) {
   return `${DEAD_LABEL_ID_PREFIX}${itemId}/text`;
 }
 
-function hashString(value) {
-  let hash = 0;
-  const source = String(value ?? "");
-  for (let i = 0; i < source.length; i += 1) {
-    hash = (hash * 31 + source.charCodeAt(i)) >>> 0;
-  }
-  return hash >>> 0;
-}
-
-function getDeadLabelRotation(item) {
-  const deadData = getDeadData(item);
-  const seed = `${item?.id ?? ""}:${deadData?.appliedAt ?? 0}`;
-  const normalized = hashString(seed) / 0xffffffff;
-  return -30 + normalized * DEAD_LABEL_ROTATION_RANGE;
+function getRandomDeadLabelRotation() {
+  return -30 + Math.random() * DEAD_LABEL_ROTATION_RANGE;
 }
 
 function getDeadLabelFontSize(item, bounds, gridDpi) {
@@ -77,7 +65,7 @@ function buildDeadTextLabel(item, bounds, gridDpi) {
     .strokeWidth(DEAD_LABEL_STROKE_WIDTH)
     .lineHeight(1)
     .padding(DEAD_LABEL_PADDING)
-    .rotation(getDeadLabelRotation(item))
+    .rotation(getRandomDeadLabelRotation())
     .attachedTo(item.id)
     .layer("CHARACTER")
     .locked(true)
@@ -181,7 +169,6 @@ export async function upsertLocalDeadLabelsForItems(items) {
         draftItem.disableAutoZIndex = label.disableAutoZIndex;
         draftItem.zIndex = label.zIndex;
         draftItem.metadata = label.metadata;
-        draftItem.rotation = label.rotation;
         draftItem.attachedTo = label.attachedTo;
         draftItem.disableAttachmentBehavior = label.disableAttachmentBehavior;
         draftItem.text = label.text;
