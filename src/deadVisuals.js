@@ -1,6 +1,6 @@
 import OBR, { buildImage } from "@owlbear-rodeo/sdk";
 import { getDeadData, isDead } from "./dead.js";
-import { BLOOD_SPLAT_IDS, getBloodSplatSpec } from "./deadSplats.js";
+import { BLOOD_SPLAT_IDS, getBloodSplatSpec, resolveBloodSplatFile } from "./deadSplats.js";
 import { getBloodynessFromMetadata, normalizeBloodyness } from "./settings.js";
 import { NS } from "./statusModel.js";
 
@@ -24,7 +24,7 @@ function isManagedDeadVisual(item) {
 }
 
 function getBloodImage(item) {
-  const file = getDeadData(item)?.splatFile ?? BLOOD_SPLAT_IDS[0];
+  const file = resolveBloodSplatFile(getDeadData(item)?.splatFile ?? BLOOD_SPLAT_IDS[0]);
   const spec = getBloodSplatSpec(file);
   const url = EXTENSION_ORIGIN
     ? new URL(`/blood-splats/${file}`, EXTENSION_ORIGIN).toString()
@@ -40,7 +40,7 @@ function getBloodImage(item) {
 
 function getDeadVisualPosition(item, bounds, gridDpi) {
   const center = bounds?.center ?? item?.position ?? { x: 0, y: 0 };
-  const file = getDeadData(item)?.splatFile ?? BLOOD_SPLAT_IDS[0];
+  const file = resolveBloodSplatFile(getDeadData(item)?.splatFile ?? BLOOD_SPLAT_IDS[0]);
   const spec = getBloodSplatSpec(file);
   const squareSize = Number.isFinite(Number(gridDpi)) && Number(gridDpi) > 0 ? Number(gridDpi) : 150;
 
