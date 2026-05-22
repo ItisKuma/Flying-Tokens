@@ -78,6 +78,15 @@
         overflow: hidden;
       }
 
+      .app-header {
+        overflow: hidden;
+      }
+
+      .app-content {
+        min-height: 0;
+        overflow: hidden;
+      }
+
       .tab-strip {
         display: flex;
         gap: 24px;
@@ -116,6 +125,8 @@
       }
 
       .tab-panel {
+        height: 100%;
+        min-height: 0;
         overflow-y: auto;
         overflow-x: hidden;
         padding: 16px;
@@ -340,43 +351,47 @@
   </head>
   <body>
     <main>
-      <div class="tab-strip" role="tablist" aria-label="Token Status Tabs">
-        <button id="tab-tokens" class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab="tokens">Tokens</button>
-        <button id="tab-settings" class="tab-button" type="button" role="tab" aria-selected="false" data-tab="settings">Settings</button>
-      </div>
+      <header class="app-header">
+        <div class="tab-strip" role="tablist" aria-label="Token Status Tabs">
+          <button id="tab-tokens" class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab="tokens">Tokens</button>
+          <button id="tab-settings" class="tab-button" type="button" role="tab" aria-selected="false" data-tab="settings">Settings</button>
+        </div>
+      </header>
 
-      <div id="panel-tokens" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-tokens">
-        <section class="stack">
-          <h2>Selected</h2>
-          <p id="selected-token-empty">Select a character token in the scene.</p>
-          <ul id="selected-token-list" class="token-list"></ul>
-        </section>
+      <div class="app-content">
+        <div id="panel-tokens" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-tokens">
+          <section class="stack">
+            <h2>Selected</h2>
+            <p id="selected-token-empty">Select a character token in the scene.</p>
+            <ul id="selected-token-list" class="token-list"></ul>
+          </section>
 
-        <section class="stack">
-          <h2>Tokens in Scene</h2>
-          <div class="section-actions">
-            <button id="clean-blood-button" type="button">Clean Blood</button>
-          </div>
-          <p id="scene-token-empty">No character tokens in this scene.</p>
-          <ul id="scene-token-list" class="token-list"></ul>
-        </section>
-      </div>
-
-      <div id="panel-settings" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-settings" hidden>
-        <section class="stack">
-          <h2>Settings</h2>
-          <div class="setting-row">
-            <div class="setting-row__header">
-              <span>Bloodyness</span>
-              <span id="bloodyness-value" class="setting-row__value">None</span>
+          <section class="stack">
+            <h2>Tokens in Scene</h2>
+            <div class="section-actions">
+              <button id="clean-blood-button" type="button">Clean Blood</button>
             </div>
-            <input id="bloodyness-slider" class="ui-slider" type="range" min="0.5" max="1.25" step="0.05" value="0.5" />
-            <div class="setting-row__range">
-              <span>None</span>
-              <span>Bloody Mess</span>
+            <p id="scene-token-empty">No character tokens in this scene.</p>
+            <ul id="scene-token-list" class="token-list"></ul>
+          </section>
+        </div>
+
+        <div id="panel-settings" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-settings" hidden>
+          <section class="stack">
+            <h2>Settings</h2>
+            <div class="setting-row">
+              <div class="setting-row__header">
+                <span>Bloodyness</span>
+                <span id="bloodyness-value" class="setting-row__value">None</span>
+              </div>
+              <input id="bloodyness-slider" class="ui-slider" type="range" min="0.5" max="1.25" step="0.05" value="0.5" />
+              <div class="setting-row__range">
+                <span>None</span>
+                <span>Bloody Mess</span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </main>
     <script type="module" src="/src/main.js"></script>
