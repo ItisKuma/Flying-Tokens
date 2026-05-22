@@ -1,11 +1,13 @@
 import OBR from "@owlbear-rodeo/sdk";
 import {
+  DEAD_STATUS_ID,
   FLYING_STATUS_ID,
   NS,
   getStatusData,
   removeItemStatusData,
   setItemStatusData,
 } from "./statusModel.js";
+import { getDeadZIndex } from "./zOrder.js";
 
 export const MIN_Z_FEET = 5;
 export const MAX_Z_FEET = 150;
@@ -105,7 +107,10 @@ export async function toggleFlyingForItems(items) {
         for (const i of items) {
           if (!i) continue;
 
-          const baseZIndex = Number(i.zIndex ?? 0);
+          const deadData = getStatusData(i, DEAD_STATUS_ID);
+          const baseZIndex = deadData?.active
+            ? Number(deadData.baseZIndex ?? i.zIndex ?? 0)
+            : Number(i.zIndex ?? 0);
           const baseScale = i.scale ?? { x: 1, y: 1 };
 
           setItemStatusData(i, FLYING_STATUS_ID, {
@@ -129,12 +134,20 @@ export async function toggleFlyingForItems(items) {
 
           const currentData = getFlyingData(i);
           if (!currentData) continue;
+          const deadData = getStatusData(i, DEAD_STATUS_ID);
 
           const baseZIndex = Number(currentData.baseZIndex ?? i.zIndex ?? 0);
           const baseScale = currentData.baseScale ?? { x: 1, y: 1 };
-          i.zIndex = baseZIndex;
+
+          if (deadData?.active) {
+            i.zIndex = getDeadZIndex(Number(deadData.baseZIndex ?? baseZIndex));
+            i.disableAutoZIndex = true;
+          } else {
+            i.zIndex = baseZIndex;
+            i.disableAutoZIndex = false;
+          }
+
           i.scale = baseScale;
-          i.disableAutoZIndex = false;
           removeItemStatusData(i, FLYING_STATUS_ID);
         }
       });

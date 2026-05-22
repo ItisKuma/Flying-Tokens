@@ -1,9 +1,9 @@
 import OBR from "@owlbear-rodeo/sdk";
 import { pickRandomBloodSplat } from "./deadSplats.js";
 import { createDeadVisualsForItems } from "./deadVisuals.js";
+import { getBaseZIndex, getFlyingZIndex, getItemZFeet, isFlying } from "./flying.js";
 import { DEAD_STATUS_ID, getStatusData, removeItemStatusData, setItemStatusData } from "./statusModel.js";
-
-export const DEAD_Z_INDEX_DELTA = 1000000000000000;
+import { getDeadZIndex } from "./zOrder.js";
 
 export function getDeadData(item) {
   return getStatusData(item, DEAD_STATUS_ID);
@@ -11,10 +11,6 @@ export function getDeadData(item) {
 
 export function isDead(item) {
   return Boolean(getDeadData(item)?.active);
-}
-
-export function getDeadZIndex(baseZIndex) {
-  return Number(baseZIndex ?? 0) - DEAD_Z_INDEX_DELTA;
 }
 
 export async function toggleDeadForItems(items) {
@@ -31,7 +27,9 @@ export async function toggleDeadForItems(items) {
       await OBR.scene.items.updateItems([item.id], (draftItems) => {
         for (const draftItem of draftItems) {
           if (!draftItem) continue;
-          const baseZIndex = Number(draftItem.zIndex ?? 0);
+          const baseZIndex = isFlying(draftItem)
+            ? getBaseZIndex(draftItem)
+            : Number(draftItem.zIndex ?? 0);
 
           setItemStatusData(draftItem, DEAD_STATUS_ID, {
             active: true,
@@ -39,7 +37,13 @@ export async function toggleDeadForItems(items) {
             splatFile,
             baseZIndex,
           });
-          draftItem.zIndex = getDeadZIndex(baseZIndex);
+
+          if (isFlying(draftItem)) {
+            draftItem.zIndex = getFlyingZIndex(baseZIndex, getItemZFeet(draftItem));
+          } else {
+            draftItem.zIndex = getDeadZIndex(baseZIndex);
+          }
+
           draftItem.disableAutoZIndex = true;
         }
       });
@@ -56,8 +60,15 @@ export async function toggleDeadForItems(items) {
         if (!draftItem) continue;
         const currentData = getDeadData(draftItem);
         const baseZIndex = Number(currentData?.baseZIndex ?? draftItem.zIndex ?? 0);
-        draftItem.zIndex = baseZIndex;
-        draftItem.disableAutoZIndex = false;
+
+        if (isFlying(draftItem)) {
+          draftItem.zIndex = getFlyingZIndex(getBaseZIndex(draftItem), getItemZFeet(draftItem));
+          draftItem.disableAutoZIndex = true;
+        } else {
+          draftItem.zIndex = baseZIndex;
+          draftItem.disableAutoZIndex = false;
+        }
+
         removeItemStatusData(draftItem, DEAD_STATUS_ID);
       }
     });
