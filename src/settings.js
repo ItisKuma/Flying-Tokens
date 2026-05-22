@@ -2,6 +2,8 @@ import OBR from "@owlbear-rodeo/sdk";
 import { NS } from "./statusModel.js";
 
 export const SETTINGS_NS = `${NS}/settings`;
+export const MIN_BLOODYNESS = 0.5;
+export const MAX_BLOODYNESS = 1.25;
 export const DEFAULT_BLOODYNESS = 0.95;
 
 export function normalizeBloodyness(value) {
@@ -10,7 +12,7 @@ export function normalizeBloodyness(value) {
     return DEFAULT_BLOODYNESS;
   }
 
-  return Math.max(DEFAULT_BLOODYNESS, Math.min(2, numericValue));
+  return Math.max(MIN_BLOODYNESS, Math.min(MAX_BLOODYNESS, numericValue));
 }
 
 export function getSettingsFromMetadata(metadata) {

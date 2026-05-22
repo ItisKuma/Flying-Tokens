@@ -12,6 +12,8 @@ import {
 import {
   DEFAULT_BLOODYNESS,
   getBloodynessFromMetadata,
+  MAX_BLOODYNESS,
+  MIN_BLOODYNESS,
   normalizeBloodyness,
   setSceneBloodyness,
 } from "./settings.js";
@@ -30,7 +32,7 @@ const state = {
 function getBloodynessLabel(value) {
   const bloodyness = normalizeBloodyness(value);
   if (bloodyness <= 0.95) return "None";
-  if (bloodyness >= 2) return "Bloody Mess";
+  if (bloodyness >= MAX_BLOODYNESS) return "Bloody Mess";
   return bloodyness.toFixed(2);
 }
 
