@@ -1,4 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
+import { refreshAllAttachedAssets } from "./attachedAssets.js";
 import { pickRandomBloodSplat } from "./deadSplats.js";
 import { createDeadVisualsForItems } from "./deadVisuals.js";
 import { getBaseZIndex, getFlyingZIndex, getItemZFeet, isFlying } from "./flying.js";
@@ -73,4 +74,6 @@ export async function toggleDeadForItems(items) {
       }
     });
   }
+
+  await refreshAllAttachedAssets();
 }

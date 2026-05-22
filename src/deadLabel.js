@@ -114,13 +114,29 @@ export async function deleteLocalDeadLabelsForSourceIds(sourceIds) {
   await OBR.scene.local.deleteItems(localItems.map((item) => item.id));
 }
 
-export async function createLocalDeadLabelsForItems(items) {
-  const deadItems = (items ?? []).filter((item) => isDead(item));
-  if (deadItems.length === 0) return;
+export async function upsertLocalDeadLabelsForItems(items) {
+  const relevantItems = (items ?? []).filter(Boolean);
+  const relevantIds = new Set(relevantItems.map((item) => item.id));
+  if (relevantIds.size === 0) return;
 
+  const deadItems = relevantItems.filter((item) => isDead(item));
+  const deadIds = new Set(deadItems.map((item) => item.id));
   const localItems = await OBR.scene.local.getItems(
-    (item) => item?.metadata?.[LOCAL_DEAD_LABEL_NS]?.labelFor,
+    (item) => relevantIds.has(item?.metadata?.[LOCAL_DEAD_LABEL_NS]?.labelFor),
   );
+
+  const itemIdsToDelete = localItems
+    .filter((localItem) => {
+      const ownerId = localItem.metadata?.[LOCAL_DEAD_LABEL_NS]?.labelFor;
+      return ownerId && !deadIds.has(ownerId);
+    })
+    .map((localItem) => localItem.id);
+
+  if (itemIdsToDelete.length > 0) {
+    await OBR.scene.local.deleteItems(itemIdsToDelete);
+  }
+
+  if (deadItems.length === 0) return;
 
   let gridDpi = 150;
   try {
@@ -130,8 +146,8 @@ export async function createLocalDeadLabelsForItems(items) {
   }
 
   const localItemsById = new Map(localItems.map((item) => [item.id, item]));
-
   const boundsById = new Map();
+
   for (const item of deadItems) {
     try {
       const bounds = await OBR.scene.items.getItemBounds([item.id]);
@@ -147,18 +163,37 @@ export async function createLocalDeadLabelsForItems(items) {
     label.zIndex = Number(item.zIndex ?? 0) + 0.3;
 
     const existingLabel = localItemsById.get(label.id);
-    if (existingLabel?.type === label.type) {
+    if (!existingLabel || existingLabel.type !== label.type) {
+      if (existingLabel?.id) {
+        await OBR.scene.local.deleteItems([existingLabel.id]);
+      }
+      itemsToAdd.push(label);
       continue;
     }
 
-    if (existingLabel?.id) {
-      await OBR.scene.local.deleteItems([existingLabel.id]);
-    }
-
-    itemsToAdd.push(label);
+    await OBR.scene.local.updateItems([label.id], (draftItems) => {
+      for (const draftItem of draftItems) {
+        draftItem.position = label.position;
+        draftItem.layer = label.layer;
+        draftItem.locked = label.locked;
+        draftItem.visible = label.visible;
+        draftItem.disableHit = label.disableHit;
+        draftItem.disableAutoZIndex = label.disableAutoZIndex;
+        draftItem.zIndex = label.zIndex;
+        draftItem.metadata = label.metadata;
+        draftItem.rotation = label.rotation;
+        draftItem.attachedTo = label.attachedTo;
+        draftItem.disableAttachmentBehavior = label.disableAttachmentBehavior;
+        draftItem.text = label.text;
+      }
+    });
   }
 
   if (itemsToAdd.length > 0) {
     await OBR.scene.local.addItems(itemsToAdd);
   }
+}
+
+export async function createLocalDeadLabelsForItems(items) {
+  await upsertLocalDeadLabelsForItems(items);
 }

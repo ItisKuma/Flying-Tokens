@@ -1,4 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
+import { refreshAllAttachedAssets } from "./attachedAssets.js";
 import {
   DEAD_STATUS_ID,
   FLYING_STATUS_ID,
@@ -154,6 +155,7 @@ export async function toggleFlyingForItems(items) {
     }
   }
 
+  await refreshAllAttachedAssets();
 }
 
 export async function toggleFlying() {
@@ -186,6 +188,8 @@ export async function setFlyingHeight(itemId, zFeet) {
       item.disableAutoZIndex = true;
     }
   });
+
+  await refreshAllAttachedAssets();
 }
 
 export async function setItemZIndex(itemId, zIndex) {
@@ -216,4 +220,6 @@ export async function setItemZIndex(itemId, zIndex) {
       item.disableAutoZIndex = true;
     }
   });
+
+  await refreshAllAttachedAssets();
 }
