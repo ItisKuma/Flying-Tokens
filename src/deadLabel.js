@@ -6,10 +6,13 @@ export const LOCAL_DEAD_LABEL_NS = `${NS}-local-dead-label`;
 const DEAD_LABEL_ID_PREFIX = `${NS}/dead-label/`;
 const DEAD_LABEL_TEXT = "Dead!";
 const DEAD_LABEL_BASE_FONT_SIZE = 50;
-const DEAD_LABEL_FILL = "#d31515";
+const DEAD_LABEL_FILL = "#ff4d4d";
 const DEAD_LABEL_STROKE = "#000000";
 const DEAD_LABEL_STROKE_WIDTH = 5;
 const DEAD_LABEL_ROTATION_RANGE = 60;
+const DEAD_LABEL_PADDING = 4;
+const DEAD_LABEL_WIDTH_FACTOR = 4.6;
+const DEAD_LABEL_HEIGHT_FACTOR = 1.35;
 
 function getDeadLabelId(itemId) {
   return `${DEAD_LABEL_ID_PREFIX}${itemId}/text`;
@@ -39,22 +42,31 @@ function getDeadLabelFontSize(item, bounds, gridDpi) {
   return DEAD_LABEL_BASE_FONT_SIZE * averageSquares;
 }
 
+function getDeadLabelBox(fontSize) {
+  return {
+    width: Math.max(fontSize, fontSize * DEAD_LABEL_WIDTH_FACTOR),
+    height: Math.max(fontSize, fontSize * DEAD_LABEL_HEIGHT_FACTOR),
+  };
+}
+
 function buildDeadTextLabel(item, bounds, gridDpi) {
   const center = item?.position ?? bounds?.center ?? { x: 0, y: 0 };
+  const fontSize = getDeadLabelFontSize(item, bounds, gridDpi);
+  const box = getDeadLabelBox(fontSize);
 
   return buildText()
     .id(getDeadLabelId(item.id))
     .name("Dead Status Label")
     .position({
-      x: Number(center.x ?? 0),
-      y: Number(center.y ?? 0),
+      x: Number(center.x ?? 0) - box.width / 2,
+      y: Number(center.y ?? 0) - box.height / 2,
     })
     .plainText(DEAD_LABEL_TEXT)
     .textType("PLAIN")
-    .width("AUTO")
-    .height("AUTO")
-    .fontFamily("Fantasy")
-    .fontSize(getDeadLabelFontSize(item, bounds, gridDpi))
+    .width(box.width)
+    .height(box.height)
+    .fontFamily("fantasy")
+    .fontSize(fontSize)
     .fontWeight(700)
     .textAlign("CENTER")
     .textAlignVertical("MIDDLE")
@@ -64,7 +76,7 @@ function buildDeadTextLabel(item, bounds, gridDpi) {
     .strokeOpacity(1)
     .strokeWidth(DEAD_LABEL_STROKE_WIDTH)
     .lineHeight(1)
-    .padding(4)
+    .padding(DEAD_LABEL_PADDING)
     .rotation(getDeadLabelRotation(item))
     .attachedTo(item.id)
     .layer("CHARACTER")
@@ -157,6 +169,8 @@ export async function syncLocalDeadLabels(items) {
         draftItem.attachedTo = label.attachedTo;
         draftItem.disableAttachmentBehavior = label.disableAttachmentBehavior;
         draftItem.text = label.text;
+        draftItem.width = label.width;
+        draftItem.height = label.height;
       }
     });
   }
