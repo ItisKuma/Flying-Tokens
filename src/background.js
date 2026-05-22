@@ -1,4 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
+import { clearLocalDeadLabels, syncLocalDeadLabels } from "./deadLabel.js";
 import { deleteDeadVisualsForSourceIds } from "./deadVisuals.js";
 import { clearLocalFlyingLabels, syncLocalFlyingLabels } from "./flyingLabel.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
@@ -12,6 +13,7 @@ let syncInFlight = false;
 let syncQueued = false;
 
 async function syncRuntimeVisuals(items = state.items) {
+  await syncLocalDeadLabels(items);
   await syncLocalFlyingLabels(items);
   await syncLocalShadows(items);
 }
@@ -86,6 +88,7 @@ OBR.onReady(() => {
 
     if (!ready) {
       state.items = [];
+      await clearLocalDeadLabels();
       await clearLocalFlyingLabels();
       await clearLocalShadows();
       return;
@@ -98,6 +101,7 @@ OBR.onReady(() => {
     state.sceneReady = ready;
 
     if (!ready) {
+      await clearLocalDeadLabels();
       await clearLocalFlyingLabels();
       await clearLocalShadows();
       return;
