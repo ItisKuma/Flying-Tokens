@@ -5,6 +5,11 @@ import { deleteDeadVisualsForSourceIds } from "./deadVisuals.js";
 import { clearLocalFlyingLabels, syncLocalFlyingLabels } from "./flyingLabel.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
 
+const TOKEN_STATUS_ACTION_ID = "token-status-open";
+const TOKEN_STATUS_POPOVER_ID = "token-status-popover";
+const TOKEN_STATUS_POPOVER_WIDTH = 400;
+const TOKEN_STATUS_POPOVER_HEIGHT = 600;
+
 const state = {
   items: [],
   sceneReady: false,
@@ -68,7 +73,45 @@ async function refreshItems() {
   await syncRuntimeVisuals(state.items);
 }
 
+function getPopoverUrl() {
+  return new URL("/", globalThis.location.href).toString();
+}
+
+async function openTokenStatusPopover(elementId) {
+  await OBR.popover.open({
+    id: TOKEN_STATUS_POPOVER_ID,
+    url: getPopoverUrl(),
+    width: TOKEN_STATUS_POPOVER_WIDTH,
+    height: TOKEN_STATUS_POPOVER_HEIGHT,
+    anchorElementId: elementId,
+    hidePaper: true,
+  });
+}
+
+async function installTokenStatusAction() {
+  try {
+    await OBR.tool.removeAction(TOKEN_STATUS_ACTION_ID);
+  } catch {
+    // no-op
+  }
+
+  await OBR.tool.createAction({
+    id: TOKEN_STATUS_ACTION_ID,
+    icons: [
+      {
+        icon: "/icon.png",
+        label: "Token Status",
+      },
+    ],
+    onClick: async (_context, elementId) => {
+      await openTokenStatusPopover(elementId);
+    },
+  });
+}
+
 OBR.onReady(() => {
+  installTokenStatusAction().catch(() => {});
+
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
 

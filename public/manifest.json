@@ -4,12 +4,5 @@
   "manifest_version": 1,
   "author": "Kuma",
   "description": "Token status system for Owlbear Rodeo",
-  "background_url": "/background.html",
-  "action": {
-    "title": "Token Status",
-    "icon": "/icon.png",
-    "popover": "/",
-    "height": 600,
-    "width": 400
-  }
+  "background_url": "/background.html"
 }
