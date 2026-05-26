@@ -118,9 +118,6 @@ OBR.onReady(() => {
 
     if (!ready) {
       state.items = [];
-      await clearLocalDeadLabels();
-      await clearLocalFlyingLabels();
-      await clearLocalShadows();
       return;
     }
 
@@ -131,9 +128,6 @@ OBR.onReady(() => {
     state.sceneReady = ready;
 
     if (!ready) {
-      await clearLocalDeadLabels();
-      await clearLocalFlyingLabels();
-      await clearLocalShadows();
       return;
     }
 

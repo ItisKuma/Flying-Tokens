@@ -1,5 +1,6 @@
 import OBR, { buildText } from "@owlbear-rodeo/sdk";
 import { getFlyingItems, getItemZFeet } from "./flying.js";
+import { approxEqual, canManageSharedVisuals, sameStringArray } from "./sharedVisuals.js";
 import { NS } from "./statusModel.js";
 
 export const LOCAL_FLYING_LABEL_NS = `${NS}-local-flying-label`;
@@ -67,22 +68,62 @@ function buildFlyingTextLabel(item, bounds) {
     .build();
 }
 
+function isSameFlyingLabel(existingItem, desiredItem) {
+  const existingText = existingItem?.text ?? {};
+  const desiredText = desiredItem?.text ?? {};
+  const existingStyle = existingText.style ?? {};
+  const desiredStyle = desiredText.style ?? {};
+
+  return (
+    existingItem?.type === desiredItem?.type &&
+    approxEqual(existingItem?.position?.x, desiredItem?.position?.x) &&
+    approxEqual(existingItem?.position?.y, desiredItem?.position?.y) &&
+    approxEqual(existingItem?.zIndex, desiredItem?.zIndex) &&
+    existingItem?.layer === desiredItem?.layer &&
+    existingItem?.locked === desiredItem?.locked &&
+    existingItem?.disableHit === desiredItem?.disableHit &&
+    existingItem?.disableAutoZIndex === desiredItem?.disableAutoZIndex &&
+    existingItem?.attachedTo === desiredItem?.attachedTo &&
+    sameStringArray(existingItem?.disableAttachmentBehavior, desiredItem?.disableAttachmentBehavior) &&
+    existingText.plainText === desiredText.plainText &&
+    existingText.type === desiredText.type &&
+    existingText.width === desiredText.width &&
+    existingText.height === desiredText.height &&
+    approxEqual(existingText.padding, desiredText.padding) &&
+    approxEqual(existingText.lineHeight, desiredText.lineHeight) &&
+    existingStyle.fontFamily === desiredStyle.fontFamily &&
+    approxEqual(existingStyle.fontSize, desiredStyle.fontSize) &&
+    existingStyle.fontWeight === desiredStyle.fontWeight &&
+    existingStyle.textAlign === desiredStyle.textAlign &&
+    existingStyle.textAlignVertical === desiredStyle.textAlignVertical &&
+    existingStyle.fillColor === desiredStyle.fillColor &&
+    approxEqual(existingStyle.fillOpacity, desiredStyle.fillOpacity) &&
+    existingStyle.strokeColor === desiredStyle.strokeColor &&
+    approxEqual(existingStyle.strokeOpacity, desiredStyle.strokeOpacity) &&
+    approxEqual(existingStyle.strokeWidth, desiredStyle.strokeWidth)
+  );
+}
+
 function getDesiredFlyingLabelIds(flyingItems) {
   return new Set(flyingItems.map((item) => getFlyingLabelId(item.id)));
 }
 
 export async function clearLocalFlyingLabels() {
-  const localItems = await OBR.scene.local.getItems(
+  if (!(await canManageSharedVisuals())) return;
+
+  const localItems = await OBR.scene.items.getItems(
     (item) => item?.metadata?.[LOCAL_FLYING_LABEL_NS]?.labelFor,
   );
 
   if (localItems.length === 0) return;
-  await OBR.scene.local.deleteItems(localItems.map((item) => item.id));
+  await OBR.scene.items.deleteItems(localItems.map((item) => item.id));
 }
 
 export async function syncLocalFlyingLabels(items) {
+  if (!(await canManageSharedVisuals())) return;
+
   const flyingItems = getFlyingItems(items);
-  const localItems = await OBR.scene.local.getItems(
+  const localItems = await OBR.scene.items.getItems(
     (item) => item?.metadata?.[LOCAL_FLYING_LABEL_NS]?.labelFor,
   );
 
@@ -98,7 +139,7 @@ export async function syncLocalFlyingLabels(items) {
     .map((localItem) => localItem.id);
 
   if (itemIdsToDelete.length > 0) {
-    await OBR.scene.local.deleteItems(itemIdsToDelete);
+    await OBR.scene.items.deleteItems(itemIdsToDelete);
   }
 
   const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
@@ -122,13 +163,17 @@ export async function syncLocalFlyingLabels(items) {
     const existingLabel = localItemsById.get(textLabel.id);
     if (!existingLabel || existingLabel.type !== textLabel.type) {
       if (existingLabel?.id) {
-        await OBR.scene.local.deleteItems([existingLabel.id]);
+        await OBR.scene.items.deleteItems([existingLabel.id]);
       }
       itemsToAdd.push(textLabel);
       continue;
     }
 
-    await OBR.scene.local.updateItems([textLabel.id], (draftItems) => {
+    if (isSameFlyingLabel(existingLabel, textLabel)) {
+      continue;
+    }
+
+    await OBR.scene.items.updateItems([textLabel.id], (draftItems) => {
       for (const draftItem of draftItems) {
         draftItem.position = textLabel.position;
         draftItem.layer = textLabel.layer;
@@ -147,6 +192,6 @@ export async function syncLocalFlyingLabels(items) {
   }
 
   if (itemsToAdd.length > 0) {
-    await OBR.scene.local.addItems(itemsToAdd);
+    await OBR.scene.items.addItems(itemsToAdd);
   }
 }

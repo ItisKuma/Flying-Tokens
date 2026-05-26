@@ -6,6 +6,7 @@ import {
   getItemZFeet,
   isFlying,
 } from "./flying.js";
+import { approxEqual, canManageSharedVisuals, sameStringArray } from "./sharedVisuals.js";
 import { NS } from "./statusModel.js";
 
 export const LOCAL_SHADOW_NS = `${NS}-local-shadow`;
@@ -206,18 +207,48 @@ function buildLocalShadowLayers(item, allItems, bounds, gridDpi) {
   });
 }
 
+function isSameShadow(existingItem, desiredItem) {
+  const existingStyle = existingItem?.style ?? {};
+  const desiredStyle = desiredItem?.style ?? {};
+
+  return (
+    existingItem?.type === desiredItem?.type &&
+    approxEqual(existingItem?.position?.x, desiredItem?.position?.x) &&
+    approxEqual(existingItem?.position?.y, desiredItem?.position?.y) &&
+    approxEqual(existingItem?.width, desiredItem?.width) &&
+    approxEqual(existingItem?.height, desiredItem?.height) &&
+    approxEqual(existingItem?.zIndex, desiredItem?.zIndex) &&
+    existingItem?.layer === desiredItem?.layer &&
+    existingItem?.locked === desiredItem?.locked &&
+    existingItem?.disableHit === desiredItem?.disableHit &&
+    existingItem?.disableAutoZIndex === desiredItem?.disableAutoZIndex &&
+    existingItem?.attachedTo === desiredItem?.attachedTo &&
+    existingItem?.shapeType === desiredItem?.shapeType &&
+    sameStringArray(existingItem?.disableAttachmentBehavior, desiredItem?.disableAttachmentBehavior) &&
+    existingStyle.fillColor === desiredStyle.fillColor &&
+    approxEqual(existingStyle.fillOpacity, desiredStyle.fillOpacity) &&
+    existingStyle.strokeColor === desiredStyle.strokeColor &&
+    approxEqual(existingStyle.strokeOpacity, desiredStyle.strokeOpacity) &&
+    approxEqual(existingStyle.strokeWidth, desiredStyle.strokeWidth)
+  );
+}
+
 export async function clearLocalShadows() {
-  const localItems = await OBR.scene.local.getItems(
+  if (!(await canManageSharedVisuals())) return;
+
+  const localItems = await OBR.scene.items.getItems(
     (item) => item?.metadata?.[LOCAL_SHADOW_NS]?.shadowFor,
   );
 
   if (localItems.length === 0) return;
-  await OBR.scene.local.deleteItems(localItems.map((item) => item.id));
+  await OBR.scene.items.deleteItems(localItems.map((item) => item.id));
 }
 
 export async function syncLocalShadows(items) {
+  if (!(await canManageSharedVisuals())) return;
+
   const flyingItems = getFlyingItems(items);
-  const localItems = await OBR.scene.local.getItems(
+  const localItems = await OBR.scene.items.getItems(
     (item) => item?.metadata?.[LOCAL_SHADOW_NS]?.shadowFor,
   );
   let gridDpi = 0;
@@ -245,7 +276,7 @@ export async function syncLocalShadows(items) {
     .map((localItem) => localItem.id);
 
   if (itemIdsToDelete.length > 0) {
-    await OBR.scene.local.deleteItems(itemIdsToDelete);
+    await OBR.scene.items.deleteItems(itemIdsToDelete);
   }
 
   const localItemsById = new Map(localItems.map((localItem) => [localItem.id, localItem]));
@@ -269,13 +300,17 @@ export async function syncLocalShadows(items) {
 
       if (!existingShadow || existingShadow.type !== shadow.type) {
         if (existingShadow?.id) {
-          await OBR.scene.local.deleteItems([existingShadow.id]);
+          await OBR.scene.items.deleteItems([existingShadow.id]);
         }
         itemsToAdd.push(shadow);
         continue;
       }
 
-      await OBR.scene.local.updateItems([shadow.id], (draftItems) => {
+      if (isSameShadow(existingShadow, shadow)) {
+        continue;
+      }
+
+      await OBR.scene.items.updateItems([shadow.id], (draftItems) => {
         for (const draftItem of draftItems) {
           draftItem.position = shadow.position;
           draftItem.layer = shadow.layer;
@@ -298,6 +333,6 @@ export async function syncLocalShadows(items) {
   }
 
   if (itemsToAdd.length > 0) {
-    await OBR.scene.local.addItems(itemsToAdd);
+    await OBR.scene.items.addItems(itemsToAdd);
   }
 }
