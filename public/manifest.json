@@ -8,7 +8,7 @@
   "action": {
     "title": "Token Status",
     "icon": "/icon.png",
-    "popover": "/index.html",
+    "popover": "/",
     "height": 600,
     "width": 400
   },
