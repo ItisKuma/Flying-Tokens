@@ -1,4 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
+import "./ui.css";
 import { isDead, toggleDeadForItems } from "./dead.js";
 import { clearSceneDeadVisuals, DEAD_VISUAL_NS } from "./deadVisuals.js";
 import {
@@ -28,6 +29,60 @@ const state = {
   lastSelectedCharacterId: null,
   busyItemIds: new Set(),
 };
+
+function ensureAppShell() {
+  const root = document.getElementById("reactApp") ?? document.body;
+  if (!root || root.querySelector("main")) {
+    return;
+  }
+
+  root.innerHTML = `
+    <main>
+      <header class="app-header">
+        <div class="tab-strip" role="tablist" aria-label="Token Status Tabs">
+          <button id="tab-tokens" class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab="tokens">Tokens</button>
+          <button id="tab-settings" class="tab-button" type="button" role="tab" aria-selected="false" data-tab="settings">Settings</button>
+        </div>
+      </header>
+
+      <div class="app-content">
+        <div id="panel-tokens" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-tokens">
+          <section class="stack">
+            <h2>Selected</h2>
+            <p id="selected-token-empty">Select a character token in the scene.</p>
+            <ul id="selected-token-list" class="token-list"></ul>
+          </section>
+
+          <section class="stack">
+            <h2>Tokens in Scene</h2>
+            <div class="section-actions">
+              <button id="clean-blood-button" type="button">Clean Blood</button>
+            </div>
+            <p id="scene-token-empty">No character tokens in this scene.</p>
+            <ul id="scene-token-list" class="token-list"></ul>
+          </section>
+        </div>
+
+        <div id="panel-settings" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-settings" hidden>
+          <section class="stack">
+            <h2>Settings</h2>
+            <div class="setting-row">
+              <div class="setting-row__header">
+                <span>Bloodyness</span>
+                <span id="bloodyness-value" class="setting-row__value">None</span>
+              </div>
+              <input id="bloodyness-slider" class="ui-slider" type="range" min="0.5" max="1.25" step="0.05" value="0.5" />
+              <div class="setting-row__range">
+                <span>None</span>
+                <span>Bloody Mess</span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  `;
+}
 
 function getBloodynessLabel(value) {
   const bloodyness = normalizeBloodyness(value);
@@ -420,6 +475,8 @@ async function toggleStatus(item, statusId) {
     await toggleDeadForItems([item]);
   }
 }
+
+ensureAppShell();
 
 OBR.onReady(() => {
   document.addEventListener("click", async (event) => {
