@@ -9,8 +9,8 @@
     "title": "Token Status",
     "icon": "/icon.png",
     "popover": "/action.html",
-    "height": 600,
-    "width": 400
+    "height": 32,
+    "width": 32
   },
   "background_url": "/background.html"
 }
