@@ -172,6 +172,32 @@ function getStatusSummary(item) {
   return parts.join(" · ");
 }
 
+function getItemThumbnailUrl(item) {
+  const candidates = [
+    item?.image?.url,
+    item?.image?.thumbnail,
+    item?.image?.preview,
+    item?.image?.src,
+    item?.imageUrl,
+  ];
+
+  return candidates.find((value) => typeof value === "string" && value.length > 0) ?? "";
+}
+
+function getTokenInitials(item) {
+  const label = getItemLabel(item).trim();
+  if (!label) {
+    return "?";
+  }
+
+  const parts = label.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
 function getStatusButtonConfig(item, statusId) {
   const isBusy = state.busyItemIds.has(item.id);
 
@@ -204,6 +230,71 @@ function getStatusButtonConfig(item, statusId) {
   };
 }
 
+function getStatusIconMarkup(statusId, isActive) {
+  if (statusId === "flying") {
+    return isActive
+      ? `
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M4 12.5h12" />
+          <path d="M6.5 15 4 12.5 6.5 10" />
+          <path d="M13.5 15 16 12.5 13.5 10" />
+        </svg>
+      `
+      : `
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M10 15V6" />
+          <path d="M6.5 9.5 10 6l3.5 3.5" />
+          <path d="M6 14.5c1.1-1.2 2.4-1.8 4-1.8s2.9.6 4 1.8" />
+        </svg>
+      `;
+  }
+
+  if (statusId === "dead") {
+    return isActive
+      ? `
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M10 4a6 6 0 1 0 5.2 3" />
+          <path d="M10 1.8v3.7h3.8" />
+        </svg>
+      `
+      : `
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <path d="M7.2 5.2h5.6l2.2 3v4.7l-5 3-5-3V8.2z" />
+          <path d="M8.3 9.2h.01" />
+          <path d="M11.7 9.2h.01" />
+          <path d="M8.8 12.1c.7-.5 1.7-.5 2.4 0" />
+        </svg>
+      `;
+  }
+
+  return `
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <circle cx="10" cy="10" r="4.5" />
+    </svg>
+  `;
+}
+
+function createTokenAvatar(item) {
+  const avatar = document.createElement("div");
+  avatar.className = "token-row__avatar";
+
+  const imageUrl = getItemThumbnailUrl(item);
+
+  if (imageUrl) {
+    const image = document.createElement("img");
+    image.className = "token-row__avatar-image";
+    image.src = imageUrl;
+    image.alt = "";
+    image.loading = "lazy";
+    avatar.append(image);
+    return avatar;
+  }
+
+  avatar.classList.add("is-fallback");
+  avatar.textContent = getTokenInitials(item);
+  return avatar;
+}
+
 function createStatusButtons(item) {
   const wrap = document.createElement("div");
   wrap.className = "token-row__statuses";
@@ -213,10 +304,12 @@ function createStatusButtons(item) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `status-button${config.active ? " is-active" : ""}`;
-    button.textContent = config.label;
+    button.innerHTML = `${getStatusIconMarkup(config.statusId, config.active)}<span class="sr-only">${config.label}</span>`;
     button.dataset.action = config.action;
     button.dataset.itemId = item.id;
     button.dataset.statusId = config.statusId;
+    button.setAttribute("aria-label", config.label);
+    button.title = config.label;
     button.disabled = Boolean(config.disabled);
     wrap.append(button);
   }
@@ -251,22 +344,27 @@ function createTokenRow(item) {
   const row = document.createElement("li");
   row.className = "token-row";
 
-  const header = document.createElement("div");
-  header.className = "token-row__header";
+  const top = document.createElement("div");
+  top.className = "token-row__topline";
 
   const name = document.createElement("div");
   name.className = "token-row__name";
   name.textContent = getItemLabel(item);
 
-  const summary = document.createElement("div");
-  summary.className = "token-row__summary";
-  summary.textContent = getStatusSummary(item);
-
-  header.append(name, summary);
-  row.append(header, createStatusButtons(item));
+  top.append(createTokenAvatar(item), name, createStatusButtons(item));
+  row.append(top);
 
   if (isFlying(item)) {
+    const summary = document.createElement("div");
+    summary.className = "token-row__summary";
+    summary.textContent = getStatusSummary(item);
+    row.append(summary);
     row.append(createZSlider(item));
+  } else if (isDead(item)) {
+    const summary = document.createElement("div");
+    summary.className = "token-row__summary";
+    summary.textContent = getStatusSummary(item);
+    row.append(summary);
   }
 
   return row;
