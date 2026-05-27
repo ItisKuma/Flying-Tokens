@@ -39,6 +39,10 @@ function ensureAppShell() {
   root.innerHTML = `
     <main>
       <header class="app-header">
+        <div class="app-header__intro">
+          <p class="app-eyebrow">Scene Utility</p>
+          <h1>Token Status</h1>
+        </div>
         <div class="tab-strip" role="tablist" aria-label="Token Status Tabs">
           <button id="tab-tokens" class="tab-button is-active" type="button" role="tab" aria-selected="true" data-tab="tokens">Tokens</button>
           <button id="tab-settings" class="tab-button" type="button" role="tab" aria-selected="false" data-tab="settings">Settings</button>
@@ -47,14 +51,26 @@ function ensureAppShell() {
 
       <div class="app-content">
         <div id="panel-tokens" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-tokens">
-          <section class="stack">
-            <h2>Selected</h2>
+          <section class="panel-section stack">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Focus</p>
+                <h2>Selected</h2>
+              </div>
+              <span id="selected-token-count" class="section-count">0</span>
+            </div>
             <p id="selected-token-empty">Select a character token in the scene.</p>
             <ul id="selected-token-list" class="token-list"></ul>
           </section>
 
-          <section class="stack">
-            <h2>Tokens in Scene</h2>
+          <section class="panel-section stack">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Registry</p>
+                <h2>Tokens in Scene</h2>
+              </div>
+              <span id="scene-token-count" class="section-count">0</span>
+            </div>
             <div class="section-actions">
               <button id="clean-blood-button" type="button">Clean Blood</button>
             </div>
@@ -64,8 +80,13 @@ function ensureAppShell() {
         </div>
 
         <div id="panel-settings" class="tab-panel stack" role="tabpanel" aria-labelledby="tab-settings" hidden>
-          <section class="stack">
-            <h2>Settings</h2>
+          <section class="panel-section stack">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Scene</p>
+                <h2>Settings</h2>
+              </div>
+            </div>
             <div class="setting-row">
               <div class="setting-row__header">
                 <span>Bloodyness</span>
@@ -254,17 +275,20 @@ function createTokenRow(item) {
 function renderSelectedTab() {
   const list = document.getElementById("selected-token-list");
   const empty = document.getElementById("selected-token-empty");
+  const count = document.getElementById("selected-token-count");
   if (!list || !empty) return;
 
   list.innerHTML = "";
 
   if (!state.sceneReady) {
+    if (count) count.textContent = "0";
     empty.hidden = false;
     empty.textContent = "Open a scene to inspect the selected token.";
     return;
   }
 
   const selectedItems = getSelectedCharacterItems();
+  if (count) count.textContent = String(selectedItems.length);
 
   if (selectedItems.length === 0) {
     empty.hidden = false;
@@ -281,17 +305,20 @@ function renderSelectedTab() {
 function renderSceneTab() {
   const list = document.getElementById("scene-token-list");
   const empty = document.getElementById("scene-token-empty");
+  const count = document.getElementById("scene-token-count");
   if (!list || !empty) return;
 
   list.innerHTML = "";
 
   if (!state.sceneReady) {
+    if (count) count.textContent = "0";
     empty.hidden = false;
     empty.textContent = "Open a scene to see character tokens.";
     return;
   }
 
   const characterItems = getCharacterItems();
+  if (count) count.textContent = String(characterItems.length);
 
   if (characterItems.length === 0) {
     empty.hidden = false;
