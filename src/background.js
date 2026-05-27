@@ -5,6 +5,12 @@ import { deleteDeadVisualsForSourceIds } from "./deadVisuals.js";
 import { clearLocalFlyingLabels, syncLocalFlyingLabels } from "./flyingLabel.js";
 import { clearLocalShadows, syncLocalShadows } from "./shadow.js";
 
+const TOKEN_STATUS_POPOVER_ID = "token-status-paperless";
+const TOKEN_STATUS_POPOVER_WIDTH = 400;
+const TOKEN_STATUS_POPOVER_HEIGHT = 600;
+const TOKEN_STATUS_ANCHOR_LEFT = 8;
+const TOKEN_STATUS_ANCHOR_TOP = 72;
+
 const state = {
   items: [],
   sceneReady: false,
@@ -68,7 +74,47 @@ async function refreshItems() {
   await syncRuntimeVisuals(state.items);
 }
 
+function getTokenStatusUrl() {
+  return new URL("/index.html", globalThis.location.href).toString();
+}
+
+async function openTokenStatusPopover() {
+  await OBR.popover.open({
+    id: TOKEN_STATUS_POPOVER_ID,
+    url: getTokenStatusUrl(),
+    width: TOKEN_STATUS_POPOVER_WIDTH,
+    height: TOKEN_STATUS_POPOVER_HEIGHT,
+    anchorReference: "POSITION",
+    anchorPosition: {
+      left: TOKEN_STATUS_ANCHOR_LEFT,
+      top: TOKEN_STATUS_ANCHOR_TOP,
+    },
+    anchorOrigin: {
+      horizontal: "LEFT",
+      vertical: "TOP",
+    },
+    transformOrigin: {
+      horizontal: "LEFT",
+      vertical: "TOP",
+    },
+    hidePaper: true,
+    marginThreshold: 8,
+  });
+}
+
 OBR.onReady(() => {
+  OBR.action.onOpenChange((isOpen) => {
+    if (!isOpen) {
+      return;
+    }
+
+    Promise.resolve()
+      .then(openTokenStatusPopover)
+      .finally(() => {
+        OBR.action.close().catch(() => {});
+      });
+  });
+
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
 
