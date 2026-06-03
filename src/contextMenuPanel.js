@@ -135,9 +135,10 @@ function render() {
         type="button"
         ${state.busy ? "disabled" : ""}
         aria-label="${allFlying ? "Land selected tokens" : "Make selected tokens flying"}"
+        title="${allFlying ? "Land" : "Fly"}"
       >
         ${getStatusIcon("flying", allFlying)}
-        <span class="menu-button__label">${allFlying ? "Land" : "Fly"}</span>
+        <span class="sr-only">${allFlying ? "Land" : "Fly"}</span>
       </button>
       <button
         id="menu-dead"
@@ -145,9 +146,10 @@ function render() {
         type="button"
         ${state.busy ? "disabled" : ""}
         aria-label="${allDead ? "Revive selected tokens" : "Mark selected tokens dead"}"
+        title="${allDead ? "Revive" : "Dead"}"
       >
         ${getStatusIcon("dead", allDead)}
-        <span class="menu-button__label">${allDead ? "Revive" : "Dead"}</span>
+        <span class="sr-only">${allDead ? "Revive" : "Dead"}</span>
       </button>
     </div>
     <div class="menu-slider" ${showSlider ? "" : "hidden"}>
