@@ -1,4 +1,5 @@
 import OBR from "@owlbear-rodeo/sdk";
+import { setupContextMenu } from "./contextMenu.js";
 import { clearLocalDeadLabels, createLocalDeadLabelsForItems, deleteLocalDeadLabelsForSourceIds } from "./deadLabel.js";
 import { isDead } from "./dead.js";
 import { deleteDeadVisualsForSourceIds } from "./deadVisuals.js";
@@ -69,6 +70,8 @@ async function refreshItems() {
 }
 
 OBR.onReady(() => {
+  setupContextMenu();
+
   OBR.scene.items.onChange((items) => {
     if (!state.sceneReady) return;
 
